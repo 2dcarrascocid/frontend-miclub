@@ -104,6 +104,11 @@ export const playersAPI = {
     delete: (id) => apiClient.delete(`/jugadores/${id}`),
 };
 
+// ==================== DASHBOARD API ====================
+export const dashboardAPI = {
+    getSummary: (clubId) => apiClient.get(`/clubes/${clubId}/dashboard/resumen`),
+};
+
 // ==================== FINANCE API ====================
 export const financeAPI = {
     // Updated to match /clubes/{clubId}/finanzas/movimientos

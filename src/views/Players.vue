@@ -7,13 +7,13 @@
           <p>Gestiona tu equipo de jugadores</p>
         </div>
         <div class="header-actions">
-          <select v-model="selectedClubId" class="club-select" @change="loadPlayers">
+          <select v-model="selectedClubId" class="club-select" @change="resetAndLoad">
             <option value="" disabled>Selecciona un club</option>
             <option v-for="club in clubs" :key="club.id" :value="club.id">
               {{ club.nombre }}
             </option>
           </select>
-          <button class="btn btn-primary" @click="showCreateModal = true" :disabled="!selectedClubId">
+          <button class="btn btn-primary" @click="openCreateModal" :disabled="!selectedClubId">
             ➕ Nuevo Jugador
           </button>
         </div>
@@ -33,33 +33,82 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="players.length === 0" class="empty-state">
+      <div v-else-if="players.length === 0 && !loading" class="empty-state">
         <span class="empty-icon">👥</span>
         <h3>No hay jugadores</h3>
         <p>Agrega jugadores a tu club para comenzar</p>
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button class="btn btn-primary" @click="openCreateModal">
           Agregar Primer Jugador
         </button>
       </div>
 
-      <!-- Players Grid -->
-      <div v-else class="players-grid">
-        <div v-for="player in players" :key="player.id" class="player-card">
-          <div class="player-avatar">
-            {{ getInitials(player.nombre_completo) }}
-          </div>
-          <div class="player-info">
-            <h3>{{ player.nombre_completo }}</h3>
-            <p class="player-role">{{ player.email || 'Sin email' }}</p>
-            <div class="player-stats">
-              <span v-if="player.rut">🆔 {{ player.rut }}</span>
-              <span v-if="player.es_socio">⭐ Socio</span>
-            </div>
-          </div>
-          <div class="player-actions">
-            <button class="btn-icon" @click="editPlayer(player)">✏️</button>
-            <button class="btn-icon delete" @click="deletePlayer(player.id)">🗑️</button>
-          </div>
+      <!-- Players Table -->
+      <div v-else class="players-table-container">
+        <table class="players-table">
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Nombre Completo</th>
+              <th>RUT</th>
+              <th>Teléfono</th>
+              <th>Edad</th>
+              <th>Categoría</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="player in players" :key="player.id">
+              <td>{{ player.folio || '-' }}</td>
+              <td>
+                <div class="player-name-cell">
+                  <div class="player-avatar-small">
+                    {{ getInitials(player.nombre_completo) }}
+                  </div>
+                  {{ player.nombre_completo }}
+                </div>
+              </td>
+              <td>{{ player.rut || '-' }}</td>
+              <td>{{ player.telefono || '-' }}</td>
+              <td>{{ calculateAge(player.fecha_nacimiento) }}</td>
+              <td>
+                <span :class="['badge', getCategoryClass(player.fecha_nacimiento)]">
+                  {{ getCategory(player.fecha_nacimiento) }}
+                </span>
+              </td>
+              <td>
+                <div class="status-icons">
+                  <span v-if="player.es_socio" title="Socio">⭐</span>
+                  <span v-if="player.es_jugador" title="Jugador">⚽</span>
+                </div>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn-icon" @click="editPlayer(player)" title="Editar">✏️</button>
+                  <button class="btn-icon delete" @click="deletePlayer(player.id)" title="Eliminar">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination" v-if="totalPlayers > 0">
+          <button 
+            class="btn-page" 
+            :disabled="currentPage === 1" 
+            @click="prevPage"
+          >
+            Anterior
+          </button>
+          <span class="page-info">Página {{ currentPage }} (Total: {{ totalPlayers }})</span>
+          <button 
+            class="btn-page" 
+            :disabled="!hasNextPage" 
+            @click="nextPage"
+          >
+            Siguiente
+          </button>
         </div>
       </div>
     </div>
@@ -125,13 +174,20 @@
             </div>
           </div>
 
-          <div class="form-group">
+          <div class="form-group checkboxes">
             <label class="checkbox-label">
               <input 
                 type="checkbox" 
                 v-model="form.es_socio"
               >
-              <span>Es socio del club</span>
+              <span>⭐ Es Socio</span>
+            </label>
+            <label class="checkbox-label">
+              <input 
+                type="checkbox" 
+                v-model="form.es_jugador"
+              >
+              <span>⚽ Es Jugador</span>
             </label>
           </div>
 
@@ -148,7 +204,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
@@ -167,6 +223,12 @@ const submitting = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);
 
+// Pagination State
+const currentPage = ref(1);
+const totalPlayers = ref(0);
+const pageTokens = ref([null]); // Index 0 is for Page 1 (no token)
+const hasNextPage = ref(false);
+
 const form = reactive({
   nombre_completo: '',
   rut: '',
@@ -174,13 +236,13 @@ const form = reactive({
   telefono: '',
   fecha_nacimiento: '',
   es_socio: false,
+  es_jugador: false,
   usuario_id: null
 });
 
 onMounted(async () => {
   await loadClubs();
   
-  // Priority: URL param > Store selected club > First club
   if (route.query.club) {
     selectedClubId.value = route.query.club;
   } else if (clubStore.selectedClub.value) {
@@ -189,7 +251,9 @@ onMounted(async () => {
     selectedClubId.value = clubs.value[0].id;
   }
   
-  await loadPlayers();
+  if (selectedClubId.value) {
+    await loadPlayers();
+  }
 });
 
 const loadClubs = async () => {
@@ -202,17 +266,60 @@ const loadClubs = async () => {
   }
 };
 
+const resetAndLoad = () => {
+  currentPage.value = 1;
+  pageTokens.value = [null];
+  loadPlayers();
+};
+
 const loadPlayers = async () => {
   if (!selectedClubId.value) return;
   
   loading.value = true;
   try {
-    const response = await playersAPI.getAll(selectedClubId.value);
-    players.value = Array.isArray(response.data) ? response.data : [];
+    // Get token for current page (index is currentPage - 1)
+    const nextToken = pageTokens.value[currentPage.value - 1];
+    
+    const params = {};
+    if (nextToken) {
+      params.next = nextToken;
+    }
+
+    const response = await playersAPI.getAll(selectedClubId.value, params);
+    
+    // Handle new response format
+    const { data, total_jugadores, next } = response.data;
+    
+    players.value = Array.isArray(data) ? data : [];
+    totalPlayers.value = total_jugadores || 0;
+    
+    // Store next token for the NEXT page (index is currentPage)
+    if (next) {
+      pageTokens.value[currentPage.value] = next;
+      hasNextPage.value = true;
+    } else {
+      hasNextPage.value = false;
+    }
+
   } catch (error) {
     console.error('Error loading players:', error);
+    players.value = [];
   } finally {
     loading.value = false;
+  }
+};
+
+const nextPage = () => {
+  if (hasNextPage.value) {
+    currentPage.value++;
+    loadPlayers();
+  }
+};
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+    loadPlayers();
   }
 };
 
@@ -227,6 +334,7 @@ const handleSubmit = async () => {
       await playersAPI.create(selectedClubId.value, playerData);
     }
 
+    // Reload current page to see changes
     await loadPlayers();
     closeModal();
   } catch (error) {
@@ -235,6 +343,11 @@ const handleSubmit = async () => {
   } finally {
     submitting.value = false;
   }
+};
+
+const openCreateModal = () => {
+  resetForm();
+  showCreateModal.value = true;
 };
 
 const editPlayer = (player) => {
@@ -246,6 +359,7 @@ const editPlayer = (player) => {
   form.telefono = player.telefono;
   form.fecha_nacimiento = player.fecha_nacimiento;
   form.es_socio = player.es_socio;
+  form.es_jugador = player.es_jugador;
   form.usuario_id = player.usuario_id;
   showCreateModal.value = true;
 };
@@ -264,17 +378,60 @@ const deletePlayer = async (id) => {
 
 const closeModal = () => {
   showCreateModal = false;
+  resetForm();
+};
+
+const resetForm = () => {
   isEditing.value = false;
   editingId.value = null;
-  form.nombre = '';
-  form.posicion = 'Mediocampista';
-  form.dorsal = '';
+  form.nombre_completo = '';
+  form.rut = '';
   form.email = '';
+  form.telefono = '';
+  form.fecha_nacimiento = '';
+  form.es_socio = false;
+  form.es_jugador = false;
+  form.usuario_id = null;
 };
 
 const getInitials = (name) => {
   if (!name) return '??';
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+};
+
+const calculateAge = (birthDate) => {
+  if (!birthDate) return '-';
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+const getCategory = (birthDate) => {
+  const age = calculateAge(birthDate);
+  if (age === '-') return '';
+  
+  // Logic:
+  // 35-45: Senior
+  // 46-54: Super Senior
+  // >= 55: Dorado
+  
+  if (age >= 55) return 'Dorado';
+  if (age > 45) return 'Super Senior';
+  if (age >= 35) return 'Senior';
+  return '';
+};
+
+const getCategoryClass = (birthDate) => {
+  const category = getCategory(birthDate);
+  if (category === 'Senior') return 'badge-senior';
+  if (category === 'Super Senior') return 'badge-super';
+  if (category === 'Dorado') return 'badge-dorado';
+  return '';
 };
 </script>
 
@@ -323,70 +480,74 @@ const getInitials = (name) => {
   min-width: 200px;
 }
 
-.players-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: var(--spacing-lg);
+/* Table Styles */
+.players-table-container {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
-.player-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: var(--spacing-lg);
+.players-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text-primary);
+}
+
+.players-table th,
+.players-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.players-table th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.players-table tr:last-child td {
+  border-bottom: none;
+}
+
+.players-table tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.player-name-cell {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  transition: all var(--transition-base);
+  gap: 0.75rem;
+  font-weight: 500;
 }
 
-.player-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--primary-light);
-}
-
-.player-avatar {
-  width: 50px;
-  height: 50px;
+.player-avatar-small {
+  width: 32px;
+  height: 32px;
   background: var(--primary-gradient);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-weight: 700;
-  font-size: 1.2rem;
-  flex-shrink: 0;
-}
-
-.player-info {
-  flex: 1;
-}
-
-.player-info h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: var(--text-primary);
-}
-
-.player-role {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 2px 0;
-}
-
-.player-stats {
   font-size: 0.8rem;
-  color: var(--text-secondary);
-  display: flex;
-  gap: var(--spacing-sm);
+  font-weight: 700;
 }
 
-.player-actions {
+.status-icons {
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .btn-icon {
@@ -395,13 +556,78 @@ const getInitials = (name) => {
   cursor: pointer;
   opacity: 0.7;
   transition: opacity 0.2s;
+  padding: 0.25rem;
 }
 
 .btn-icon:hover {
   opacity: 1;
+  transform: scale(1.1);
 }
 
-/* Modal and Form Styles (Reused) */
+/* Badges */
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.badge-senior {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-super {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.badge-dorado {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-page {
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-page:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-page:not(:disabled):hover {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.page-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -457,12 +683,25 @@ const getInitials = (name) => {
   color: var(--text-secondary);
 }
 
-.form-input, .form-select {
+.form-input {
   width: 100%;
   padding: 0.75rem;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+.checkboxes {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
   color: var(--text-primary);
 }
 
@@ -499,6 +738,10 @@ const getInitials = (name) => {
   
   .club-select {
     width: 100%;
+  }
+  
+  .players-table-container {
+    overflow-x: auto;
   }
 }
 </style>

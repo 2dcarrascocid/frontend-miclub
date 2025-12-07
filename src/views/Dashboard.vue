@@ -178,7 +178,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
-import { clubsAPI, playersAPI, financeAPI } from '../api';
+import { clubsAPI, playersAPI, financeAPI, dashboardAPI } from '../api';
 
 const authStore = useAuthStore();
 const clubStore = useClubStore();
@@ -198,7 +198,8 @@ const createForm = reactive({
 });
 
 const stats = ref([
-  { icon: '👥', label: 'Jugadores', value: '0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+  { icon: '⚽', label: 'Jugadores', value: '0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+  { icon: '⭐', label: 'Socios', value: '0', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
   { icon: '💰', label: 'Balance', value: '$0', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
   { icon: '📅', label: 'Mes Actual', value: getCurrentMonth(), gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
 ]);
@@ -227,10 +228,12 @@ const loadClubStats = async () => {
   if (!selectedClub.value) return;
   
   try {
-    // Load Players Count
-    const playersRes = await playersAPI.getAll(selectedClub.value.id);
-    const playersCount = playersRes.data.jugadores?.length || 0;
-    stats.value[0].value = playersCount.toString();
+    // Load Dashboard Summary (Players & Partners)
+    const summaryRes = await dashboardAPI.getSummary(selectedClub.value.id);
+    const { total_jugadores_activos, total_socios_no_jugadores } = summaryRes.data;
+    
+    stats.value[0].value = (total_jugadores_activos || 0).toString();
+    stats.value[1].value = (total_socios_no_jugadores || 0).toString();
 
     // Load Finance Balance
     const financeRes = await financeAPI.getTransactions(selectedClub.value.id);
@@ -240,7 +243,7 @@ const loadClubStats = async () => {
     const currentBalance = income - expense;
     
     balance.value = currentBalance;
-    stats.value[1].value = formatCurrency(currentBalance);
+    stats.value[2].value = formatCurrency(currentBalance);
     
   } catch (error) {
     console.error('Error loading stats:', error);
