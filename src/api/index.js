@@ -102,6 +102,7 @@ export const playersAPI = {
     getById: (id) => apiClient.get(`/jugadores/${id}`),
     update: (playerData) => apiClient.put('/jugadores/actualizar', playerData),
     delete: (id) => apiClient.delete(`/jugadores/${id}`),
+    search: (clubId, query) => apiClient.get(`/clubes/${clubId}/jugadores/buscar`, { params: { query } }),
 };
 
 // ==================== DASHBOARD API ====================
@@ -114,6 +115,7 @@ export const financeAPI = {
     // Updated to match /clubes/{clubId}/finanzas/movimientos
     getTransactions: (clubId, params) => apiClient.get(`/clubes/${clubId}/finanzas/movimientos`, { params }),
     createTransaction: (clubId, data) => apiClient.post(`/clubes/${clubId}/finanzas/movimientos`, data),
+    createBatch: (clubId, data) => apiClient.post(`/clubes/${clubId}/finanzas/movimientos/lote`, data),
 
     // New endpoint found in serverlessFinanzas.yml
     closeMonth: (clubId, data) => apiClient.post(`/clubes/${clubId}/finanzas/cierre`, data),

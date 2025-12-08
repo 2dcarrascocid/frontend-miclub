@@ -17,7 +17,15 @@
             <button class="btn btn-outline" @click="closeMonth" :disabled="!selectedClubId">
               📅 Cerrar Mes
             </button>
-            <button class="btn btn-primary" @click="showCreateModal = true" :disabled="!selectedClubId">
+            <button 
+              class="btn btn-secondary" 
+              @click="showBatchUpload = !showBatchUpload" 
+              :disabled="!selectedClubId"
+              :class="{ active: showBatchUpload }"
+            >
+              📊 {{ showBatchUpload ? 'Ver Lista' : 'Carga por Lotes' }}
+            </button>
+            <button v-if="!showBatchUpload" class="btn btn-primary" @click="showCreateModal = true" :disabled="!selectedClubId">
               ➕ Nuevo Movimiento
             </button>
           </div>
@@ -38,56 +46,115 @@
       </div>
 
       <div v-else>
-        <!-- Summary Cards -->
-        <div class="summary-grid">
-          <div class="summary-card income">
-            <span class="summary-icon">📈</span>
-            <div class="summary-info">
-              <span class="label">Ingresos</span>
-              <span class="value">{{ formatCurrency(totalIncome) }}</span>
+        
+        <BatchFinanceUpload 
+          v-if="showBatchUpload"
+          :club-id="selectedClubId"
+          @completed="handleBatchComplete"
+        />
+
+        <div v-else>
+          <!-- Summary Cards -->
+          <div class="summary-grid">
+            <div class="summary-card income">
+              <span class="summary-icon">📈</span>
+              <div class="summary-info">
+                <span class="label">Ingresos</span>
+                <span class="value">{{ formatCurrency(totalIncome) }}</span>
+              </div>
+            </div>
+            <div class="summary-card expense">
+              <span class="summary-icon">📉</span>
+              <div class="summary-info">
+                <span class="label">Gastos</span>
+                <span class="value">{{ formatCurrency(totalExpense) }}</span>
+              </div>
+            </div>
+            <div class="summary-card balance">
+              <span class="summary-icon">💰</span>
+              <div class="summary-info">
+                <span class="label">Balance</span>
+                <span class="value" :class="{ negative: balance < 0 }">
+                  {{ formatCurrency(balance) }}
+                </span>
+              </div>
             </div>
           </div>
-          <div class="summary-card expense">
-            <span class="summary-icon">📉</span>
-            <div class="summary-info">
-              <span class="label">Gastos</span>
-              <span class="value">{{ formatCurrency(totalExpense) }}</span>
+
+          <!-- Transactions List -->
+          <div class="transactions-section">
+            <div class="section-header">
+              <h2>Movimientos Recientes</h2>
+              <span class="total-badge" v-if="totalRegistros">{{ totalRegistros }} registros</span>
             </div>
-          </div>
-          <div class="summary-card balance">
-            <span class="summary-icon">💰</span>
-            <div class="summary-info">
-              <span class="label">Balance</span>
-              <span class="value" :class="{ negative: balance < 0 }">
-                {{ formatCurrency(balance) }}
-              </span>
+            
+            <div v-if="transactions.length === 0" class="empty-list">
+              <p>No hay movimientos registrados en este periodo</p>
+            </div>
+
+            <div v-else class="table-responsive">
+              <table class="finance-table">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Categoría</th>
+                    <th>Descripción</th>
+                    <th>Fecha</th>
+                    <th>Jugador</th>
+                    <th>Registrado Por</th>
+                    <th class="text-right">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="t in transactions" :key="t.id">
+                    <td>
+                      <span class="badge" :class="t.tipo.toLowerCase()">
+                        {{ t.tipo === 'ingreso' ? '↑ Ingreso' : '↓ Gasto' }}
+                      </span>
+                    </td>
+                    <td>{{ t.categoria || '-' }}</td>
+                    <td class="cell-desc" :title="t.descripcion">{{ t.descripcion }}</td>
+                    <td>{{ formatDate(t.fecha_movimiento || t.created_at) }}</td>
+                    <td>
+                      <span v-if="t.jugador && t.jugador.nombre_completo">
+                        👤 {{ t.jugador.nombre_completo }}
+                      </span>
+                      <span v-else class="text-muted">-</span>
+                    </td>
+                    <td>
+                      <span class="text-sm">
+                        {{ t.registrado_por_nombre || 'Admin' }}
+                      </span>
+                    </td>
+                    <td class="text-right font-bold" :class="t.tipo">
+                      {{ t.tipo === 'ingreso' ? '+' : '-' }} {{ formatCurrency(t.monto) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Pagination Controls -->
+              <div class="pagination-controls">
+                <button 
+                  class="btn btn-sm btn-outline" 
+                  @click="prevPage" 
+                  :disabled="pageHistory.length === 0"
+                >
+                  ← Anterior
+                </button>
+                <span class="page-info">Página {{ pageHistory.length + 1 }}</span>
+                <button 
+                  class="btn btn-sm btn-outline" 
+                  @click="nextPage" 
+                  :disabled="!nextPageToken"
+                >
+                  Siguiente →
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Transactions List -->
-        <div class="transactions-section">
-          <h2>Movimientos Recientes</h2>
-          
-          <div v-if="transactions.length === 0" class="empty-list">
-            <p>No hay movimientos registrados en este periodo</p>
-          </div>
-
-          <div v-else class="transactions-list">
-            <div v-for="t in transactions" :key="t.id" class="transaction-item">
-              <div class="t-icon" :class="t.tipo">
-                {{ t.tipo === 'INGRESO' ? '↓' : '↑' }}
-              </div>
-              <div class="t-details">
-                <span class="t-desc">{{ t.descripcion }}</span>
-                <span class="t-date">{{ formatDate(t.fecha) }}</span>
-              </div>
-              <div class="t-amount" :class="t.tipo">
-                {{ t.tipo === 'INGRESO' ? '+' : '-' }} {{ formatCurrency(t.monto) }}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -173,6 +240,7 @@ import { useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
 import { clubsAPI, financeAPI } from '../api';
+import BatchFinanceUpload from '../components/finanzas/BatchFinanceUpload.vue';
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -180,9 +248,14 @@ const clubStore = useClubStore();
 
 const clubs = ref([]);
 const transactions = ref([]);
+const totalRegistros = ref(0);
+const nextPageToken = ref(null);
+const pageHistory = ref([]); // Stack of previous tokens (or null for first page)
+
 const selectedClubId = ref('');
 const loading = ref(false);
 const showCreateModal = ref(false);
+const showBatchUpload = ref(false);
 const submitting = ref(false);
 
 const form = reactive({
@@ -230,13 +303,24 @@ const loadClubs = async () => {
   }
 };
 
-const loadTransactions = async () => {
+const loadTransactions = async (token = null) => {
   if (!selectedClubId.value) return;
   
   loading.value = true;
   try {
-    const response = await financeAPI.getTransactions(selectedClubId.value);
-    transactions.value = response.data.movimientos || [];
+    const params = token ? { next: token } : {};
+    const response = await financeAPI.getTransactions(selectedClubId.value, params);
+    
+    // Check if response has new structure or old
+    if (response.data && Array.isArray(response.data.data)) {
+        transactions.value = response.data.data;
+        totalRegistros.value = response.data.total_registros;
+        nextPageToken.value = response.data.next;
+    } else {
+        // Fallback or old format
+        transactions.value = response.data.movimientos || response.data || [];
+        nextPageToken.value = null;
+    }
   } catch (error) {
     console.error('Error loading transactions:', error);
   } finally {
@@ -244,6 +328,25 @@ const loadTransactions = async () => {
   }
 };
 
+const currentToken = ref(null);
+
+const nextPage = async () => {
+    if (nextPageToken.value) {
+        pageHistory.value.push(currentToken.value);
+        currentToken.value = nextPageToken.value;
+        await loadTransactions(currentToken.value);
+    }
+};
+
+const prevPage = async () => {
+    if (pageHistory.value.length > 0) {
+        const prevToken = pageHistory.value.pop();
+        currentToken.value = prevToken;
+        await loadTransactions(currentToken.value);
+    }
+};
+
+// ... (rest of functions)
 const handleSubmit = async () => {
   submitting.value = true;
   try {
@@ -260,6 +363,11 @@ const handleSubmit = async () => {
   } finally {
     submitting.value = false;
   }
+};
+
+const handleBatchComplete = async () => {
+  showBatchUpload.value = false;
+  await loadTransactions();
 };
 
 const closeMonth = async () => {
@@ -290,11 +398,20 @@ const formatCurrency = (value) => {
 };
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('es-CL');
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('es-CL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 </script>
 
 <style scoped>
+/* Keeping existing styles and adding table styles */
 .finance-page {
   min-height: 100vh;
   padding: var(--spacing-2xl) 0;
@@ -407,6 +524,21 @@ const formatDate = (dateString) => {
   color: #ef4444;
 }
 
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.total-badge {
+    background: var(--bg-secondary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
 .transactions-section {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -415,78 +547,79 @@ const formatDate = (dateString) => {
 }
 
 .transactions-section h2 {
-  margin-top: 0;
-  margin-bottom: var(--spacing-lg);
+  margin: 0;
   font-size: 1.25rem;
 }
 
-.transactions-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+/* Table Styles */
+.finance-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.transaction-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
+.finance-table th {
+  text-align: left;
   padding: var(--spacing-md);
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  transition: background 0.2s;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.transaction-item:hover {
+.finance-table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.95rem;
+}
+
+.finance-table tbody tr:hover {
   background: var(--bg-hover);
 }
 
-.t-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
+.cell-desc {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.t-icon.INGRESO {
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge.ingreso {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
 }
 
-.t-icon.EGRESO {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+.badge.egreso {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f97316;
 }
 
-.t-details {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.text-right { text-align: right; }
+.font-bold { font-weight: 700; }
+.text-muted { color: var(--text-muted); }
+.text-sm { font-size: 0.875rem; }
+
+.text-right.INGRESO { color: #10b981; }
+.text-right.EGRESO { color: #f97316; }
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-xl);
 }
 
-.t-desc {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.t-date {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.t-amount {
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-
-.t-amount.INGRESO {
-  color: #10b981;
-}
-
-.t-amount.EGRESO {
-  color: #ef4444;
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
 }
 
 /* Modal and Form Styles */
@@ -611,6 +744,11 @@ const formatDate = (dateString) => {
   
   .action-buttons .btn {
     flex: 1;
+  }
+  
+  .finance-table {
+      display: block;
+      overflow-x: auto;
   }
 }
 </style>
