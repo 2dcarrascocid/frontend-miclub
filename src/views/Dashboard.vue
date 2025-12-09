@@ -78,13 +78,21 @@
       <div v-else class="dashboard-content">
         <div class="dashboard-header">
           <div class="welcome-section">
-            <h1 class="fade-in">Hola, {{ userName }} 👋</h1>
-            <p class="club-name">
-              Gestionando: <strong>{{ selectedClub.nombre }}</strong>
+           <div class="user-avatar">
+            {{ userInitials }}
+          </div>
+            <p class="club-details">
+              <strong>{{ selectedClub.nombre.toUpperCase() }}</strong>
+              <span class="separator">|</span>
+              <span class="user-info">
+                {{ userFullName }} 
+                <span class="user-role">({{ userRole }})</span>
+              </span>
               <button v-if="clubs.length > 1" @click="changeClub" class="btn-link">
-                (Cambiar)
+                (Cambiar Club)
               </button>
             </p>
+            <h1 class="fade-in">Hola, {{ userName }} 👋</h1>
           </div>
         </div>
 
@@ -183,10 +191,31 @@ import { clubsAPI, playersAPI, financeAPI, dashboardAPI } from '../api';
 const authStore = useAuthStore();
 const clubStore = useClubStore();
 
-const userName = computed(() => authStore.user.value?.nombre?.split(' ')[0] || 'Usuario');
+const userFullName = computed(() => {
+  const meta = authStore.user.value?.metadata || {};
+  if (meta.nombre && meta.apellido) return `${meta.nombre} ${meta.apellido}`;
+  return meta.nombre || 'Usuario';
+});
+
+const userRole = computed(() => {
+  const roles = authStore.state.userRoles || []; // access straight from state or getter if available?
+  // Store doesn't expose userRoles in return object yet, checking auth store inspection in step 79
+  // Step 79 show: return { state, user, isoAuthenticated... }
+  // I need to update auth store return to include userRoles? Or access via state.
+  // The state object is returned.
+  return authStore.state.userRoles?.[0] || 'Miembro';
+});
+
+
+const userName = computed(() => userFullName.value.split(' ')[0]);
 const clubs = computed(() => clubStore.clubs.value);
 const selectedClub = computed(() => clubStore.selectedClub.value);
 const loading = computed(() => clubStore.loading.value);
+
+const userInitials = computed(() => {
+  const name = selectedClub.value?.nombre || 'U';
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+});
 
 const submitting = ref(false);
 const showCreateModal = ref(false);
@@ -201,7 +230,6 @@ const stats = ref([
   { icon: '⚽', label: 'Jugadores', value: '0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
   { icon: '⭐', label: 'Socios', value: '0', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
   { icon: '💰', label: 'Balance', value: '$0', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
-  { icon: '📅', label: 'Mes Actual', value: getCurrentMonth(), gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
 ]);
 
 onMounted(async () => {
@@ -235,15 +263,14 @@ const loadClubStats = async () => {
     stats.value[0].value = (total_jugadores_activos || 0).toString();
     stats.value[1].value = (total_socios_no_jugadores || 0).toString();
 
-    // Load Finance Balance
-    const financeRes = await financeAPI.getTransactions(selectedClub.value.id);
-    const transactions = financeRes.data.movimientos || [];
-    const income = transactions.filter(t => t.tipo === 'INGRESO').reduce((s, t) => s + Number(t.monto), 0);
-    const expense = transactions.filter(t => t.tipo === 'EGRESO').reduce((s, t) => s + Number(t.monto), 0);
-    const currentBalance = income - expense;
+    // Load Finance Summary
+    const financeRes = await financeAPI.getFinancialSummary(selectedClub.value.id);
+    const { ingresos, egresos, balance: balanceTotal } = financeRes.data;
     
-    balance.value = currentBalance;
-    stats.value[2].value = formatCurrency(currentBalance);
+    balance.value = balanceTotal;
+    stats.value[2].value = formatCurrency(ingresos || 0);
+    stats.value[3].value = formatCurrency(egresos || 0);
+    stats.value[4].value = formatCurrency(balanceTotal || 0);
     
   } catch (error) {
     console.error('Error loading stats:', error);
@@ -378,6 +405,19 @@ function formatCurrency(value) {
   border-color: var(--primary-light);
   box-shadow: var(--shadow-xl);
 }
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: white;
+  box-shadow: var(--shadow-md);
+}
 
 .club-avatar {
   width: 80px;
@@ -408,12 +448,31 @@ function formatCurrency(value) {
   margin-bottom: var(--spacing-2xl);
 }
 
-.club-name {
-  font-size: 1.25rem;
+.club-details {
+  font-size: 1.1rem;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.separator {
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.user-info {
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.user-role {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  text-transform: capitalize;
 }
 
 .btn-link {

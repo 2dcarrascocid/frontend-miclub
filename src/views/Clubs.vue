@@ -6,7 +6,7 @@
           <h1>🏆 Mis Clubes</h1>
           <p>Administra tus clubes deportivos</p>
         </div>
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button class="btn btn-primary" @click="openCreateModal">
           ➕ Nuevo Club
         </button>
       </div>
@@ -22,40 +22,37 @@
         <span class="empty-icon">🏆</span>
         <h3>No tienes clubes registrados</h3>
         <p>Crea tu primer club para comenzar a gestionar jugadores y finanzas</p>
-        <button class="btn btn-primary" @click="showCreateModal = true">
+        <button class="btn btn-primary" @click="openCreateModal">
           Crear Primer Club
         </button>
       </div>
 
       <!-- Clubs Grid -->
       <div v-else class="clubs-grid">
-        <div v-for="club in clubs" :key="club.id" class="club-card">
-          <div class="club-header">
+        <div v-for="club in clubs" :key="club.id" class="card club-card">
+          <div class="card-header flex justify-between items-center">
             <div class="club-icon">
               {{ club.nombre.charAt(0).toUpperCase() }}
             </div>
             <div class="club-actions">
-              <button class="btn-icon" @click="editClub(club)">✏️</button>
-              <button class="btn-icon delete" @click="deleteClub(club.id)">🗑️</button>
+              <button class="btn-icon" @click="editClub(club)" title="Editar">✏️</button>
+              <button class="btn-icon delete" @click="deleteClub(club.id)" title="Eliminar">🗑️</button>
             </div>
           </div>
           
-          <div class="club-body">
-            <h3>{{ club.nombre }}</h3>
-            <p class="club-location">📍 {{ club.direccion || 'Sin dirección' }}</p>
-            <div class="club-stats">
-              <div class="stat">
-                <span class="label">Miembros</span>
-                <span class="value">{{ club.miembros_count || 0 }}</span>
-              </div>
-              <div class="stat">
-                <span class="label">Fundado</span>
-                <span class="value">{{ new Date(club.created_at).getFullYear() }}</span>
+          <div class="card-body">
+            <h3 class="card-title">{{ club.nombre }}</h3>
+            <p class="description">{{ club.descripcion || 'Sin descripción disponible' }}</p>
+            
+            <div class="club-meta mt-3">
+              <div class="meta-item">
+                <span class="label">Creado:</span>
+                <span class="value">{{ formatDate(club.created_at) }}</span>
               </div>
             </div>
           </div>
 
-          <div class="club-footer">
+          <div class="card-footer">
             <router-link :to="`/players?club=${club.id}`" class="btn btn-outline btn-sm">
               Jugadores
             </router-link>
@@ -77,7 +74,7 @@
         
         <form @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label>Nombre del Club</label>
+            <label class="form-label">Nombre del Club</label>
             <input 
               type="text" 
               v-model="form.nombre" 
@@ -88,13 +85,12 @@
           </div>
 
           <div class="form-group">
-            <label>Dirección</label>
-            <input 
-              type="text" 
-              v-model="form.direccion" 
-              placeholder="Ej: Av. Siempre Viva 123"
-              class="form-input"
-            >
+            <label class="form-label">Descripción</label>
+            <textarea 
+              v-model="form.descripcion" 
+              placeholder="Descripción breve del club..."
+              class="form-textarea"
+            ></textarea>
           </div>
 
           <div class="form-actions">
@@ -124,7 +120,7 @@ const editingId = ref(null);
 
 const form = reactive({
   nombre: '',
-  direccion: ''
+  descripcion: ''
 });
 
 onMounted(() => {
@@ -134,14 +130,45 @@ onMounted(() => {
 const loadClubs = async () => {
   loading.value = true;
   try {
-    const userId = authStore.user.value?.id;
+    // Usar ID específico solicitado para visualizar los datos de prueba
+    // En producción, esto debería ser authStore.user.value?.id
+    const userId = '0e05d871-9780-43c6-95b4-02f3d3db7444'; 
+    console.log('Fetching clubs for owner_id:', userId);
+
     const response = await clubsAPI.getAll({ owner_id: userId });
-    clubs.value = response.data.clubes || [];
+    console.log('API Response:', response);
+    
+    // Handle the response directly as an array or typical response structure
+    if (Array.isArray(response.data)) {
+        clubs.value = response.data;
+    } else if (response.data && Array.isArray(response.data.clubes)) {
+        // Fallback in case backend structure varies slightly
+        clubs.value = response.data.clubes;
+    } else {
+        clubs.value = [];
+        console.warn('Unexpected response format:', response.data);
+    }
   } catch (error) {
     console.error('Error loading clubs:', error);
   } finally {
     loading.value = false;
   }
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('es-CL', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+};
+
+const openCreateModal = () => {
+    isEditing.value = false;
+    form.nombre = '';
+    form.descripcion = '';
+    showCreateModal.value = true;
 };
 
 const handleSubmit = async () => {
@@ -150,7 +177,8 @@ const handleSubmit = async () => {
     const userId = authStore.user.value?.id;
     const clubData = {
       ...form,
-      owner_id: userId
+      owner_id: userId,
+      admin_id: userId // Some backends might use admin_id vs owner_id
     };
 
     if (isEditing.value) {
@@ -173,8 +201,8 @@ const editClub = (club) => {
   isEditing.value = true;
   editingId.value = club.id;
   form.nombre = club.nombre;
-  form.direccion = club.direccion;
-  showCreateModal = true;
+  form.descripcion = club.descripcion;
+  showCreateModal.value = true;
 };
 
 const deleteClub = async (id) => {
@@ -190,11 +218,11 @@ const deleteClub = async (id) => {
 };
 
 const closeModal = () => {
-  showCreateModal = false;
+  showCreateModal.value = false;
   isEditing.value = false;
   editingId.value = null;
   form.nombre = '';
-  form.direccion = '';
+  form.descripcion = '';
 };
 </script>
 
@@ -221,47 +249,26 @@ const closeModal = () => {
   background-clip: text;
 }
 
-.page-header p {
-  color: var(--text-muted);
-  margin: 0;
-}
-
 .clubs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--spacing-xl);
 }
 
 .club-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: var(--spacing-xl);
-  transition: all var(--transition-base);
-}
-
-.club-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary-light);
-}
-
-.club-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--spacing-lg);
+  flex-direction: column;
 }
 
 .club-icon {
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   background: var(--primary-gradient);
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: white;
 }
@@ -272,70 +279,56 @@ const closeModal = () => {
 }
 
 .btn-icon {
-  background: none;
+  background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   padding: 4px;
   border-radius: var(--radius-md);
   transition: background 0.2s;
+  opacity: 0.7;
 }
 
 .btn-icon:hover {
   background: var(--bg-hover);
+  opacity: 1;
 }
 
 .btn-icon.delete:hover {
   background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
 }
 
-.club-body h3 {
-  margin: 0 0 var(--spacing-xs) 0;
+.card-title {
+  margin-bottom: var(--spacing-sm);
   color: var(--text-primary);
 }
 
-.club-location {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  margin-bottom: var(--spacing-lg);
+.description {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: var(--spacing-md);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.club-stats {
-  display: flex;
-  gap: var(--spacing-xl);
-  margin-bottom: var(--spacing-lg);
-  padding: var(--spacing-md) 0;
+.club-meta {
   border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
+  padding-top: var(--spacing-md);
 }
 
-.stat {
+.meta-item {
   display: flex;
-  flex-direction: column;
-}
-
-.stat .label {
-  font-size: 0.75rem;
+  justify-content: space-between;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  text-transform: uppercase;
 }
 
-.stat .value {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.club-footer {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
-.btn-sm {
-  flex: 1;
-  padding: 0.5rem;
-  font-size: 0.875rem;
-  text-align: center;
+.card-footer {
+  margin-top: auto;
 }
 
 /* Modal Styles */
@@ -345,12 +338,13 @@ const closeModal = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
+  padding: var(--spacing-md);
 }
 
 .modal-content {
@@ -360,6 +354,7 @@ const closeModal = () => {
   padding: var(--spacing-xl);
   width: 100%;
   max-width: 500px;
+  box-shadow: var(--shadow-2xl);
   animation: slideUp 0.3s ease-out;
 }
 
@@ -378,28 +373,14 @@ const closeModal = () => {
 .close-btn {
   background: none;
   border: none;
-  font-size: 2rem;
+  font-size: 1.75rem;
   color: var(--text-muted);
   cursor: pointer;
   line-height: 1;
+  padding: 0;
 }
 
-.form-group {
-  margin-bottom: var(--spacing-lg);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: var(--spacing-xs);
-  color: var(--text-secondary);
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+.close-btn:hover {
   color: var(--text-primary);
 }
 
@@ -421,5 +402,10 @@ const closeModal = () => {
   display: block;
   margin-bottom: var(--spacing-md);
   opacity: 0.5;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

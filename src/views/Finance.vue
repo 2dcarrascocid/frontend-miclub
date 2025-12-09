@@ -265,6 +265,12 @@ const form = reactive({
   fecha: new Date().toISOString().split('T')[0]
 });
 
+const totalIncome = ref(0);
+const totalExpense = ref(0);
+const balance = ref(0);
+
+// Remove computed properties as we set them manually now from API
+/*
 const totalIncome = computed(() => 
   transactions.value
     .filter(t => t.tipo === 'INGRESO')
@@ -278,6 +284,7 @@ const totalExpense = computed(() =>
 );
 
 const balance = computed(() => totalIncome.value - totalExpense.value);
+*/
 
 onMounted(async () => {
   await loadClubs();
@@ -308,21 +315,40 @@ const loadTransactions = async (token = null) => {
   
   loading.value = true;
   try {
+    // Parallel requests for summary and transactions
     const params = token ? { next: token } : {};
-    const response = await financeAPI.getTransactions(selectedClubId.value, params);
     
-    // Check if response has new structure or old
+    // Fetch summary only if loading first page (or always? efficient to check if needed)
+    // The user wants the cards to be correct. The cards are global summary or current page?
+    // "funcionalidad: tarjetas gastos, ingresos y balance" - implies global summary usually.
+    // The previous implementation calculated from transactions, which implies it only showed visible transactions? 
+    // Actually the previous implementation calculated from `transactions.value`, which was just the current page if paginated?
+    // That would have been a bug if pagination existed. 
+    // Now we have a dedicated endpoint for summary, which is better.
+    
+    const [summaryRes, transactionsRes] = await Promise.all([
+        financeAPI.getFinancialSummary(selectedClubId.value),
+        financeAPI.getTransactions(selectedClubId.value, params)
+    ]);
+
+    // Update Summary
+    const { ingresos, egresos, balance: balanceTotal } = summaryRes.data;
+    totalIncome.value = ingresos || 0;
+    totalExpense.value = egresos || 0;
+    balance.value = balanceTotal || 0;
+
+    // Update Transactions List
+    const response = transactionsRes;
     if (response.data && Array.isArray(response.data.data)) {
         transactions.value = response.data.data;
         totalRegistros.value = response.data.total_registros;
         nextPageToken.value = response.data.next;
     } else {
-        // Fallback or old format
         transactions.value = response.data.movimientos || response.data || [];
         nextPageToken.value = null;
     }
   } catch (error) {
-    console.error('Error loading transactions:', error);
+    console.error('Error loading finance data:', error);
   } finally {
     loading.value = false;
   }

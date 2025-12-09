@@ -67,10 +67,17 @@ const authStore = useAuthStore();
 const mobileMenuOpen = ref(false);
 const userMenuOpen = ref(false);
 
-const userName = computed(() => authStore.user.value?.nombre || 'Usuario');
+const userName = computed(() => {
+  const meta = authStore.user.value?.metadata || {};
+  if (meta.nombre && meta.apellido) return `${meta.nombre} ${meta.apellido}`;
+  return meta.nombre || authStore.user.value?.email || 'Usuario';
+});
+
 const userInitials = computed(() => {
-  const name = authStore.user.value?.nombre || 'U';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const meta = authStore.user.value?.metadata || {};
+  const name = meta.nombre || 'U';
+  const surname = meta.apellido || '';
+  return (name[0] + (surname[0] || '')).toUpperCase();
 });
 
 const toggleMobileMenu = () => {

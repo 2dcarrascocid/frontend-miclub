@@ -16,6 +16,16 @@ const state = reactive({
     refreshToken: localStorage.getItem('refreshToken') || null,
     sessionId: localStorage.getItem('sessionId') || null,
     isAuthenticated: !!localStorage.getItem('accessToken'),
+    userRoles: (() => {
+        try {
+            const stored = localStorage.getItem('userRoles');
+            if (!stored || stored === 'undefined') return [];
+            return JSON.parse(stored);
+        } catch (e) {
+            localStorage.removeItem('userRoles');
+            return [];
+        }
+    })(),
     loading: false,
     error: null,
 });
@@ -30,7 +40,7 @@ export const useAuthStore = () => {
 
             const response = await authAPI.login(credentials);
 
-            const { usuario, tokens, clubes } = response.data;
+            const { usuario, tokens, clubes, roles } = response.data;
             const user = usuario;
             const accessToken = tokens.access_token;
             const refreshToken = tokens.refresh_token;
@@ -44,6 +54,9 @@ export const useAuthStore = () => {
             if (clubes && clubes.length > 0) {
                 localStorage.setItem('userClubs', JSON.stringify(clubes));
             }
+            if (roles && roles.length > 0) {
+                localStorage.setItem('userRoles', JSON.stringify(roles));
+            }
 
             // Actualizar estado
             state.user = user;
@@ -52,6 +65,7 @@ export const useAuthStore = () => {
             state.sessionId = sessionId;
             state.isAuthenticated = true;
             state.userClubs = clubes;
+            state.userRoles = roles;
 
             return response.data;
         } catch (error) {

@@ -114,6 +114,7 @@ export const dashboardAPI = {
 export const financeAPI = {
     // Updated to match /clubes/{clubId}/finanzas/movimientos
     getTransactions: (clubId, params) => apiClient.get(`/clubes/${clubId}/finanzas/movimientos`, { params }),
+    getFinancialSummary: (clubId) => apiClient.get(`/clubes/${clubId}/finanzas/resumen`),
     createTransaction: (clubId, data) => apiClient.post(`/clubes/${clubId}/finanzas/movimientos`, data),
     createBatch: (clubId, data) => apiClient.post(`/clubes/${clubId}/finanzas/movimientos/lote`, data),
 
