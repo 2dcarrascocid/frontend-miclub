@@ -40,6 +40,12 @@ const routes = [
         meta: { requiresAuth: true },
     },
     {
+        path: '/players/:id',
+        name: 'PlayerDetail',
+        component: () => import('../views/players/PlayerDetail.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
         path: '/clubs',
         name: 'Clubs',
         component: Clubs,

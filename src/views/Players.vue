@@ -84,8 +84,7 @@
               </td>
               <td>
                 <div class="action-buttons">
-                  <button class="btn-icon" @click="editPlayer(player)" title="Editar">✏️</button>
-                  <button class="btn-icon delete" @click="deletePlayer(player.id)" title="Eliminar">🗑️</button>
+                  <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👁️</button>
                 </div>
               </td>
             </tr>
@@ -205,12 +204,13 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
 import { clubsAPI, playersAPI } from '../api';
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 const clubStore = useClubStore();
 
@@ -374,6 +374,14 @@ const deletePlayer = async (id) => {
     console.error('Error deleting player:', error);
     alert('Error al eliminar el jugador');
   }
+};
+
+const viewPlayer = (player) => {
+  router.push({ 
+    name: 'PlayerDetail', 
+    params: { id: player.id },
+    state: { playerStr: JSON.stringify(player) } 
+  });
 };
 
 const closeModal = () => {
