@@ -48,7 +48,8 @@
       <!-- SCENARIO 2: MULTIPLE CLUBS, NONE SELECTED -->
       <div v-else-if="!selectedClub" class="select-club-screen">
         <div class="welcome-header">
-          <h1>Selecciona tu Club 🏆</h1>
+          <h2 class="inline">🏆</h2>
+          <h1 class="inline">Selecciona tu Club</h1>
           <p>¿Qué club quieres gestionar hoy?</p>
         </div>
 
@@ -63,7 +64,7 @@
               {{ club.nombre.charAt(0).toUpperCase() }}
             </div>
             <h3>{{ club.nombre }}</h3>
-            <p>{{ club.miembros_count || 0 }} miembros</p>
+            <p>{{ club.cantidad_jugadores || 0 }} Jugadores</p>
           </div>
           
           <!-- Option to create another club -->
@@ -645,5 +646,10 @@ function formatCurrency(value) {
   justify-content: flex-end;
   gap: var(--spacing-md);
   margin-top: var(--spacing-xl);
+}
+
+.inline {
+  display: inline-block;
+  margin: 0;
 }
 </style>

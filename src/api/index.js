@@ -110,6 +110,14 @@ export const dashboardAPI = {
     getSummary: (clubId) => apiClient.get(`/clubes/${clubId}/dashboard/resumen`),
 };
 
+// ==================== CATEGORIES API ====================
+export const categoriesAPI = {
+    getAll: (clubId) => apiClient.get(`/clubes/${clubId}/categorias`),
+    create: (clubId, data) => apiClient.post(`/clubes/${clubId}/categorias`, data),
+    update: (clubId, id, data) => apiClient.put(`/clubes/${clubId}/categorias/${id}`, data),
+    delete: (clubId, id) => apiClient.delete(`/clubes/${clubId}/categorias/${id}`),
+};
+
 // ==================== FINANCE API ====================
 export const financeAPI = {
     // Updated to match /clubes/{clubId}/finanzas/movimientos

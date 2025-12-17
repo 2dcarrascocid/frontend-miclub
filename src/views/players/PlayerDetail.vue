@@ -85,6 +85,12 @@
              <h3>Información Personal</h3>
              
              <div class="form-group">
+               <label>Folio</label>
+               <div v-if="!isEditing" class="detail-value">{{ player.folio || 'N/A' }}</div>
+               <input v-else type="number" v-model.number="form.folio" class="form-input" placeholder="Folio" />
+             </div>
+
+             <div class="form-group">
                <label>RUT</label>
                <div v-if="!isEditing" class="detail-value">{{ player.rut }}</div>
                <input v-else type="text" v-model="form.rut" class="form-input" />
@@ -175,7 +181,8 @@ const form = reactive({
     telefono: '',
     es_socio: false,
     es_jugador: false,
-    path_foto: ''
+    path_foto: '',
+    folio: ''
 });
 
 const isEditing = ref(false);
@@ -228,7 +235,8 @@ const populateForm = () => {
       telefono: player.value.telefono,
       es_socio: player.value.es_socio,
       es_jugador: player.value.es_jugador,
-      path_foto: player.value.path_foto
+      path_foto: player.value.path_foto,
+      folio: player.value.folio
     });
 };
 

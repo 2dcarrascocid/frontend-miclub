@@ -54,6 +54,9 @@
           </div>
 
           <div class="card-footer">
+            <button class="btn btn-outline btn-sm" @click="goToClubDetail(club)">
+              Ver Detalles
+            </button>
             <router-link :to="`/players?club=${club.id}`" class="btn btn-outline btn-sm">
               Jugadores
             </router-link>
@@ -108,9 +111,11 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { clubsAPI } from '../api';
 
+const router = useRouter();
 const authStore = useAuthStore();
 const clubs = ref([]);
 const loading = ref(true);
@@ -154,6 +159,15 @@ const loadClubs = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const goToClubDetail = (club) => {
+  // Pass club object in state to avoid extra fetch if possible
+  router.push({
+    name: 'ClubDetail',
+    params: { id: club.id },
+    state: { clubStr: JSON.stringify(club) }
+  });
 };
 
 const formatDate = (dateString) => {

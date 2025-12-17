@@ -8,7 +8,7 @@
           <p>Gestiona tu equipo de jugadores</p>
         </div>
         <div class="header-actions">
-          <select v-model="selectedClubId" class="club-select" @change="resetAndLoad">
+          <select v-model="selectedClubId" class="club-select">
             <option value="" disabled>Selecciona un club</option>
             <option v-for="club in clubs" :key="club.id" :value="club.id">
               {{ club.nombre }}
@@ -33,77 +33,130 @@
         <p>Elige un club para ver sus jugadores</p>
       </div>
 
-      <!-- Empty State -->
-      <div v-else-if="players.length === 0 && !loading" class="empty-state">
-        <span class="empty-icon">👥</span>
-        <h3>No hay jugadores</h3>
-        <p>Agrega jugadores a tu club para comenzar</p>
-        <button class="btn btn-primary" @click="openCreateModal">
-          Agregar Primer Jugador
-        </button>
-      </div>
+      <div v-else>
+        <!-- Category Tabs -->
+        <div class="category-tabs">
+          <button 
+            v-for="cat in categories" 
+            :key="cat.id"
+            :class="['tab-btn', { active: selectedCategory === cat.id }]"
+            @click="setCategory(cat.id)"
+          >
+            {{ cat.label }}
+          </button>
+        </div>
 
-      <!-- Players Table -->
-      <div v-else class="players-table-container">
-        <table class="players-table">
-          <thead>
-            <tr>
-              <th>Folio</th>
-              <th>Nombre Completo</th>
-              <th>RUT</th>
-              <th>Teléfono</th>
-              <th>Edad</th>
-              <th>Categoría</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="player in players" :key="player.id">
-              <td>{{ player.folio || '-' }}</td>
-              <td>
+        <!-- Empty State -->
+        <div v-if="players.length === 0 && !loading" class="empty-state">
+          <span class="empty-icon">👥</span>
+          <h3>No hay jugadores</h3>
+          <p>{{ getEmptyMessage() }}</p>
+          <button v-if="selectedCategory === 'todos'" class="btn btn-primary" @click="openCreateModal">
+            Agregar Primer Jugador
+          </button>
+        </div>
+
+        <!-- Players Content -->
+        <div v-else class="players-content">
+          
+          <!-- Desktop Table -->
+          <div class="table-responsive desktop-only">
+            <table class="players-table">
+              <thead>
+                <tr>
+                  <th>Folio</th>
+                  <th>Nombre Completo</th>
+                  <th>RUT</th>
+                  <th>Teléfono</th>
+                  <th>Edad</th>
+                  <th>Categoría</th>
+                  <th>Detalle</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="player in players" :key="player.id">
+                  <td>{{ player.folio || '-' }}</td>
+                  <td>
+                    <div class="player-name-cell">
+                      <div class="player-avatar-small">
+                        {{ getInitials(player.nombre_completo) }}
+                      </div>
+                      {{ player.nombre_completo }}
+                    </div>
+                  </td>
+                  <td>{{ player.rut || '-' }}</td>
+                  <td>{{ player.telefono || '-' }}</td>
+                  <td>{{ calculateAge(player.fecha_nacimiento) }}</td>
+                  <td>
+                    <span class="badge" :style="getCategoryStyle(player.fecha_nacimiento)">
+                      {{ getCategoryName(player.fecha_nacimiento) }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👤</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile Cards -->
+          <div class="mobile-only mobile-cards">
+            <div v-for="player in players" :key="player.id" class="player-card">
+              <div class="player-card-header">
                 <div class="player-name-cell">
                   <div class="player-avatar-small">
                     {{ getInitials(player.nombre_completo) }}
                   </div>
-                  {{ player.nombre_completo }}
+                  <span class="player-name">{{ player.nombre_completo }}</span>
                 </div>
-              </td>
-              <td>{{ player.rut || '-' }}</td>
-              <td>{{ player.telefono || '-' }}</td>
-              <td>{{ calculateAge(player.fecha_nacimiento) }}</td>
-              <td>
-                <span :class="['badge', getCategoryClass(player.fecha_nacimiento)]">
-                  {{ getCategory(player.fecha_nacimiento) }}
-                </span>
-              </td>
-              <td>
-                <div class="action-buttons">
-                  <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👁️</button>
+                <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👤</button>
+              </div>
+              
+              <div class="player-card-body">
+                <div class="card-row">
+                  <span class="label">Folio:</span>
+                  <span class="value">{{ player.folio || '-' }}</span>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <div class="card-row">
+                  <span class="label">RUT:</span>
+                  <span class="value">{{ player.rut || '-' }}</span>
+                </div>
+                <div class="card-row">
+                  <span class="label">Edad:</span>
+                  <span class="value">{{ calculateAge(player.fecha_nacimiento) }} años</span>
+                </div>
+                <div class="card-row">
+                  <span class="label">Categoría:</span>
+                  <span class="badge" :style="getCategoryStyle(player.fecha_nacimiento)">
+                    {{ getCategoryName(player.fecha_nacimiento) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <!-- Pagination -->
-        <div class="pagination" v-if="totalPlayers > 0">
-          <button 
-            class="btn-page" 
-            :disabled="currentPage === 1" 
-            @click="prevPage"
-          >
-            Anterior
-          </button>
-          <span class="page-info">Página {{ currentPage }} (Total: {{ totalPlayers }})</span>
-          <button 
-            class="btn-page" 
-            :disabled="!hasNextPage" 
-            @click="nextPage"
-          >
-            Siguiente
-          </button>
+          <!-- Pagination -->
+          <div class="pagination" v-if="totalPlayers > 0">
+            <button 
+              class="btn-page" 
+              :disabled="currentPage === 1" 
+              @click="prevPage"
+            >
+              Anterior
+            </button>
+            <span class="page-info">Página {{ currentPage }} (Total: {{ totalPlayers }})</span>
+            <button 
+              class="btn-page" 
+              :disabled="!hasNextPage" 
+              @click="nextPage"
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
-      </div>
     </div>
 <div
   v-if="showCreateModal"
@@ -220,15 +273,16 @@
   </div>
 </div>
 
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
-import { clubsAPI, playersAPI } from '../api';
+import { clubsAPI, playersAPI, categoriesAPI } from '../api';
 
 const route = useRoute();
 const router = useRouter();
@@ -244,6 +298,20 @@ const submitting = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);
 
+// Categories
+const categories = ref([
+  { id: 'todos', label: 'Todos' }
+]);
+const selectedCategory = ref('todos');
+
+// Watch selectedClubId to load categories
+watch(selectedClubId, async (newId) => {
+  if (newId) {
+    await loadCategories(newId);
+    resetAndLoad();
+  }
+});
+
 // Pagination State
 const currentPage = ref(1);
 const totalPlayers = ref(0);
@@ -258,7 +326,8 @@ const form = reactive({
   fecha_nacimiento: '',
   es_socio: false,
   es_jugador: false,
-  usuario_id: null
+  usuario_id: null,
+  folio: null
 });
 
 onMounted(async () => {
@@ -271,11 +340,36 @@ onMounted(async () => {
   } else if (clubs.value.length > 0) {
     selectedClubId.value = clubs.value[0].id;
   }
-  
-  if (selectedClubId.value) {
-    await loadPlayers();
-  }
+  // The watch will trigger loadCategories and loadPlayers
 });
+
+const loadCategories = async (clubId) => {
+  try {
+    const res = await categoriesAPI.getAll(clubId);
+    const apiCats = res.data || [];
+    
+    // Map to format used in template
+    const mappedCats = apiCats.map(c => ({
+      id: c.id, // Keep ID for filtering logic
+      label: `${c.nombre} (${c.edad_desde}-${c.edad_hasta})`,
+      nombre: c.nombre,
+      edad_desde: c.edad_desde,
+      edad_hasta: c.edad_hasta,
+      color: c.color,
+      border: c.border,
+      background: c.background
+    }));
+
+    categories.value = [
+      { id: 'todos', label: 'Todos' },
+      ...mappedCats,
+      { id: 'eliminados', label: 'Eliminados' }
+    ];
+  } catch (error) {
+    console.error('Error loading categories:', error);
+    // Fallback?
+  }
+};
 
 const loadClubs = async () => {
   try {
@@ -293,6 +387,18 @@ const resetAndLoad = () => {
   loadPlayers();
 };
 
+const setCategory = (catId) => {
+  selectedCategory.value = catId;
+  resetAndLoad();
+};
+
+const getEmptyMessage = () => {
+  if (selectedCategory.value === 'todos') return 'Agrega jugadores a tu club para comenzar';
+  if (selectedCategory.value === 'eliminados') return 'No hay jugadores eliminados';
+  const label = categories.value.find(c => c.id === selectedCategory.value)?.label;
+  return `No hay jugadores en la categoría ${label}`;
+};
+
 const loadPlayers = async () => {
   if (!selectedClubId.value) return;
   
@@ -304,6 +410,10 @@ const loadPlayers = async () => {
     const params = {};
     if (nextToken) {
       params.next = nextToken;
+    }
+    
+    if (selectedCategory.value !== 'todos') {
+      params.categoria = selectedCategory.value;
     }
 
     const response = await playersAPI.getAll(selectedClubId.value, params);
@@ -351,10 +461,11 @@ const handleSubmit = async () => {
     const playerData = { ...form };
 
     if (isEditing.value) {
-      await playersAPI.update({
-        ...playerData,
-        id: editingId.value
-      });
+      await playersAPI.update(
+        selectedClubId.value,
+        editingId.value,
+        playerData
+      );
     } else {
       console.log("Guarda datos",playerData )
       await playersAPI.create(selectedClubId.value, playerData);
@@ -398,7 +509,7 @@ const deletePlayer = async (id) => {
   if (!confirm('¿Estás seguro de eliminar este jugador?')) return;
   
   try {
-    await playersAPI.delete(id);
+    await playersAPI.delete(selectedClubId.value, id);
     await loadPlayers();
   } catch (error) {
     console.error('Error deleting player:', error);
@@ -450,28 +561,34 @@ const calculateAge = (birthDate) => {
   return age;
 };
 
-const getCategory = (birthDate) => {
+const getCategoryData = (birthDate) => {
   const age = calculateAge(birthDate);
-  if (age === '-') return '';
+  if (age === '-') return null;
+
+  // Find category matching age
+  // categories[0] is 'todos', so skip it or filter
+  const cats = categories.value.filter(c => c.id !== 'todos');
   
-  // Logic:
-  // 35-45: Senior
-  // 46-54: Super Senior
-  // >= 55: Dorado
-  
-  if (age >= 55) return 'Dorado';
-  if (age > 45) return 'Super Senior';
-  if (age >= 35) return 'Senior';
-  return 'SIN CATEGORIA';
+  return cats.find(c => age >= c.edad_desde && age <= c.edad_hasta);
 };
 
-const getCategoryClass = (birthDate) => {
-  const category = getCategory(birthDate);
-  if (category === 'Senior') return 'badge-senior';
-  if (category === 'Super Senior') return 'badge-super';
-  if (category === 'Dorado') return 'badge-dorado';
-  return '';
+const getCategoryName = (birthDate) => {
+  const cat = getCategoryData(birthDate);
+  return cat ? cat.nombre : 'SIN CATEGORIA';
 };
+
+const getCategoryStyle = (birthDate) => {
+  const cat = getCategoryData(birthDate);
+  if (!cat) return {};
+  
+  return {
+    color: cat.color,
+    border: cat.border,
+    background: cat.background
+  };
+};
+
+/* Removed old getCategory and getCategoryClass */
 </script>
 
 <style scoped>
@@ -525,12 +642,13 @@ const getCategoryClass = (birthDate) => {
 }
 
 /* Table Styles */
-.players-table-container {
+.table-responsive {
   background: var(--bg-card);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
+  margin-bottom: var(--spacing-lg);
 }
 
 .players-table {
@@ -570,6 +688,11 @@ const getCategoryClass = (birthDate) => {
   font-weight: 500;
 }
 
+.player-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .player-avatar-small {
   width: 32px;
   height: 32px;
@@ -581,6 +704,54 @@ const getCategoryClass = (birthDate) => {
   color: white;
   font-size: 0.8rem;
   font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Mobile Cards Styles */
+.mobile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.player-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.player-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.player-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.card-row .label {
+  color: var(--text-secondary);
+}
+
+.card-row .value {
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .status-icons {
@@ -591,6 +762,8 @@ const getCategoryClass = (birthDate) => {
 
 .action-buttons {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -616,24 +789,7 @@ const getCategoryClass = (birthDate) => {
   font-weight: 600;
   background: var(--bg-secondary);
   color: var(--text-secondary);
-}
-
-.badge-senior {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.badge-super {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-}
-
-.badge-dorado {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid transparent;
 }
 
 /* Pagination */
@@ -769,7 +925,24 @@ const getCategoryClass = (birthDate) => {
   opacity: 0.5;
 }
 
+/* Responsive Utilities */
+.mobile-only {
+  display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
 @media (max-width: 768px) {
+  .mobile-only {
+    display: flex; /* or block depending on container */
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+
   .page-header {
     flex-direction: column;
     align-items: flex-start;
@@ -784,8 +957,43 @@ const getCategoryClass = (birthDate) => {
     width: 100%;
   }
   
-  .players-table-container {
-    overflow-x: auto;
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
+}
+
+/* Category Tabs */
+.category-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: var(--spacing-lg);
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  font-weight: 500;
 }
 </style>

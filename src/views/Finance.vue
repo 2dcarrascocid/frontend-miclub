@@ -15,16 +15,16 @@
             </option>
           </select>
           <div class="action-buttons">
-            <button class="btn btn-outline" @click="closeMonth" :disabled="!selectedClubId">
+            <!-- <button class="btn btn-outline" @click="showCloseMonthModal = true" :disabled="!selectedClubId">
               📅 Cerrar Mes
-            </button>
+            </button> -->
             <button 
               class="btn btn-secondary" 
               @click="showBatchUpload = !showBatchUpload" 
               :disabled="!selectedClubId"
               :class="{ active: showBatchUpload }"
             >
-              📊 {{ showBatchUpload ? 'Ver Lista' : 'Carga por Lotes' }}
+              📊 {{ showBatchUpload ? 'Ver Lista' : 'Crear Planilla' }}
             </button>
             <button v-if="!showBatchUpload" class="btn btn-primary" @click="showCreateModal = true" :disabled="!selectedClubId">
               ➕ Nuevo Movimiento
@@ -52,6 +52,7 @@
           v-if="showBatchUpload"
           :club-id="selectedClubId"
           @completed="handleBatchComplete"
+          @notify="handleBatchNotify"
         />
 
         <div v-else>
@@ -85,16 +86,79 @@
           <!-- Transactions List -->
           <div class="transactions-section">
             <div class="section-header">
-              <h2>Movimientos Recientes</h2>
-              <span class="total-badge" v-if="totalRegistros">{{ totalRegistros }} registros</span>
+              <div class="header-left">
+                <h2>Movimientos Recientes</h2>
+                <span class="total-badge" v-if="totalRegistros">{{ totalRegistros }} registros</span>
+              </div>
+              <div class="filter-controls">
+                <button 
+                  class="filter-btn" 
+                  :class="{ active: filterType === 'todos' }" 
+                  @click="setFilter('todos')"
+                >
+                  Todos
+                </button>
+                <button 
+                  class="filter-btn" 
+                  :class="{ active: filterType === 'ingreso' }" 
+                  @click="setFilter('ingreso')"
+                >
+                  Ingresos
+                </button>
+                <button 
+                  class="filter-btn" 
+                  :class="{ active: filterType === 'egreso' }" 
+                  @click="setFilter('egreso')"
+                >
+                  Egresos
+                </button>
+              </div>
             </div>
             
             <div v-if="transactions.length === 0" class="empty-list">
               <p>No hay movimientos registrados en este periodo</p>
             </div>
 
-            <div v-else class="table-responsive">
-              <table class="finance-table">
+            <div v-else class="transactions-container">
+              <!-- Mobile Cards View -->
+              <div class="mobile-cards-view">
+                <div v-for="t in transactions" :key="t.id" class="transaction-card" :class="t.tipo.toLowerCase()">
+                  <div class="card-header">
+                    <div class="card-type">
+                      <span class="type-icon">{{ t.tipo === 'ingreso' ? '↑' : '↓' }}</span>
+                      <span class="type-text">{{ t.tipo === 'ingreso' ? 'Ingreso' : 'Gasto' }}</span>
+                    </div>
+                    <span class="card-amount" :class="t.tipo">{{ t.tipo === 'ingreso' ? '+' : '-' }} {{ formatCurrency(t.monto) }}</span>
+                  </div>
+                  
+                  <div class="card-body">
+                    <div class="card-row">
+                      <span class="card-label">Descripción:</span>
+                      <span class="card-value">{{ t.descripcion }}</span>
+                    </div>
+                    <div class="card-row" v-if="t.categoria">
+                      <span class="card-label">Categoría:</span>
+                      <span class="card-value">{{ t.categoria }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Fecha:</span>
+                      <span class="card-value">{{ formatDate(t.fecha_movimiento || t.created_at) }}</span>
+                    </div>
+                    <div class="card-row" v-if="t.jugador">
+                      <span class="card-label">Jugador:</span>
+                      <span class="card-value">{{ t.jugador.nombre_completo }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="card-footer">
+                    <span class="registrado-por">Por: {{ t.registrado_por_nombre || 'Admin' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Desktop Table View -->
+              <div class="table-responsive desktop-table-view">
+                <table class="finance-table">
                 <thead>
                   <tr>
                     <th>Tipo</th>
@@ -133,6 +197,7 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
 
               <!-- Pagination Controls -->
               <div class="pagination-controls">
@@ -174,20 +239,30 @@
               <button 
                 type="button" 
                 class="type-btn" 
-                :class="{ active: form.tipo === 'INGRESO' }"
-                @click="form.tipo = 'INGRESO'"
+                :class="{ active: form.tipo === 'ingreso' }"
+                @click="form.tipo = 'ingreso'"
               >
                 Ingreso
               </button>
               <button 
                 type="button" 
                 class="type-btn" 
-                :class="{ active: form.tipo === 'EGRESO' }"
-                @click="form.tipo = 'EGRESO'"
+                :class="{ active: form.tipo === 'egreso' }"
+                @click="form.tipo = 'egreso'"
               >
                 Gasto
               </button>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Categoría</label>
+            <input 
+              type="text" 
+              v-model="form.categoria" 
+              placeholder="Ej: Cuotas, Cancha, Arbitraje"
+              class="form-input"
+            >
           </div>
 
           <div class="form-group">
@@ -232,6 +307,37 @@
         </form>
       </div>
     </div>
+
+    <!-- Notification Toast -->
+    <div v-if="notification.show" class="notification-toast" :class="notification.type">
+      <span class="notification-icon">{{ notification.type === 'success' ? '✅' : (notification.type === 'error' ? '⚠️' : 'ℹ️') }}</span>
+      <span class="notification-message">{{ notification.message }}</span>
+      <button class="notification-close" @click="notification.show = false">×</button>
+    </div>
+
+    <!-- Close Month Confirmation Modal -->
+    <div v-if="showCloseMonthModal" class="modal-overlay" @click.self="showCloseMonthModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Cerrar Mes Actual</h2>
+          <button class="close-btn" @click="showCloseMonthModal = false">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <p>¿Estás seguro de que deseas cerrar el mes actual?</p>
+          <p class="text-muted text-sm mt-2">
+            Esta acción generará un reporte financiero y congelará los movimientos del periodo.
+          </p>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-outline" @click="showCloseMonthModal = false">Cancelar</button>
+          <button class="btn btn-primary" @click="handleCloseMonth" :disabled="submitting">
+            {{ submitting ? 'Cerrando...' : 'Confirmar Cierre' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -254,13 +360,31 @@ const nextPageToken = ref(null);
 const pageHistory = ref([]); // Stack of previous tokens (or null for first page)
 
 const selectedClubId = ref('');
+const filterType = ref('todos');
 const loading = ref(false);
 const showCreateModal = ref(false);
 const showBatchUpload = ref(false);
+const showCloseMonthModal = ref(false);
 const submitting = ref(false);
 
+const notification = reactive({
+  show: false,
+  message: '',
+  type: 'info'
+});
+
+const showNotification = (msg, type = 'info') => {
+  notification.message = msg;
+  notification.type = type;
+  notification.show = true;
+  setTimeout(() => {
+    notification.show = false;
+  }, 3000);
+};
+
 const form = reactive({
-  tipo: 'INGRESO',
+  tipo: 'ingreso',
+  categoria: '',
   monto: '',
   descripcion: '',
   fecha: new Date().toISOString().split('T')[0]
@@ -305,10 +429,19 @@ const loadClubs = async () => {
   try {
     const userId = authStore.user.value?.id;
     const response = await clubsAPI.getAll({ owner_id: userId });
-    clubs.value = response.data.clubes || [];
+    // Fix: API returns array directly, or object with property depending on implementation
+    clubs.value = Array.isArray(response.data) ? response.data : (response.data.clubes || []);
   } catch (error) {
     console.error('Error loading clubs:', error);
   }
+};
+
+const setFilter = async (type) => {
+  if (filterType.value === type) return;
+  filterType.value = type;
+  pageHistory.value = []; // Reset pagination
+  currentToken.value = null;
+  await loadTransactions();
 };
 
 const loadTransactions = async (token = null) => {
@@ -317,7 +450,10 @@ const loadTransactions = async (token = null) => {
   loading.value = true;
   try {
     // Parallel requests for summary and transactions
-    const params = token ? { next: token } : {};
+    const params = {
+      ...(token ? { next: token } : {}),
+      ...(filterType.value !== 'todos' ? { tipo: filterType.value } : {})
+    };
     
     // Fetch summary only if loading first page (or always? efficient to check if needed)
     // The user wants the cards to be correct. The cards are global summary or current page?
@@ -377,6 +513,7 @@ const prevPage = async () => {
 const handleSubmit = async () => {
   submitting.value = true;
   try {
+    form.tipo.toLowerCase();
     await financeAPI.createTransaction(selectedClubId.value, {
       ...form,
       monto: Number(form.monto)
@@ -384,9 +521,10 @@ const handleSubmit = async () => {
 
     await loadTransactions();
     closeModal();
+    showNotification('Movimiento registrado exitosamente', 'success');
   } catch (error) {
     console.error('Error creating transaction:', error);
-    alert('Error al crear el movimiento');
+    showNotification('Error al registrar el movimiento', 'error');
   } finally {
     submitting.value = false;
   }
@@ -397,24 +535,31 @@ const handleBatchComplete = async () => {
   await loadTransactions();
 };
 
-const closeMonth = async () => {
-  if (!confirm('¿Estás seguro de cerrar el mes actual? Esto generará un reporte.')) return;
-  
+const handleBatchNotify = ({ message, type }) => {
+  showNotification(message, type);
+};
+
+const handleCloseMonth = async () => {
+  submitting.value = true;
   try {
     await financeAPI.closeMonth(selectedClubId.value, {
       fecha: new Date().toISOString()
     });
-    alert('Mes cerrado exitosamente');
+    showNotification('Mes cerrado exitosamente', 'success');
+    showCloseMonthModal.value = false;
     await loadTransactions();
   } catch (error) {
     console.error('Error closing month:', error);
-    alert('Error al cerrar el mes');
+    showNotification('Error al cerrar el mes', 'error');
+  } finally {
+    submitting.value = false;
   }
 };
 
 const closeModal = () => {
-  showCreateModal = false;
-  form.tipo = 'INGRESO';
+  showCreateModal.value = false;
+  form.tipo = 'ingreso';
+  form.categoria = '';
   form.monto = '';
   form.descripcion = '';
   form.fecha = new Date().toISOString().split('T')[0];
@@ -438,6 +583,102 @@ const formatDate = (dateString) => {
 </script>
 
 <style scoped>
+/* Mobile Cards Styles */
+.mobile-cards-view {
+  display: none;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.transaction-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.transaction-card.ingreso {
+  border-left: 4px solid #10b981;
+}
+
+.transaction-card.egreso {
+  border-left: 4px solid #ef4444;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-type {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.transaction-card.ingreso .card-type { color: #10b981; }
+.transaction-card.egreso .card-type { color: #ef4444; }
+
+.card-amount {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.card-amount.ingreso { color: #10b981; }
+.card-amount.egreso { color: #ef4444; }
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.card-label {
+  color: var(--text-muted);
+}
+
+.card-value {
+  color: var(--text-primary);
+  text-align: right;
+  font-weight: 500;
+}
+
+.card-footer {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Responsive Visibility */
+@media (max-width: 768px) {
+  .desktop-table-view {
+    display: none;
+  }
+  
+  .mobile-cards-view {
+    display: flex;
+  }
+  
+  .finance-table {
+    display: none; /* Double check to hide table elements */
+  }
+}
+
 /* Keeping existing styles and adding table styles */
 .finance-page {
   min-height: 100vh;
@@ -556,18 +797,64 @@ const formatDate = (dateString) => {
 }
 
 .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.section-header h2 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.filter-controls {
+  display: flex;
+  gap: var(--spacing-xs);
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+}
+
+.filter-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.filter-btn.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .total-badge {
-    background: var(--bg-secondary);
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
+  background: var(--bg-card);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
 }
 
 .transactions-section {
@@ -781,5 +1068,61 @@ const formatDate = (dateString) => {
       display: block;
       overflow-x: auto;
   }
+}
+
+/* Notification Toast */
+.notification-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-lg);
+  color: white;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  animation: slideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+.notification-toast.success { background: #10b981; }
+.notification-toast.error { background: #ef4444; }
+.notification-toast.info { background: #3b82f6; }
+
+.notification-message {
+  flex: 1;
+  font-weight: 500;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: white;
+  opacity: 0.8;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 0;
+  line-height: 1;
+}
+
+.notification-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Modal Body Text */
+.modal-body p {
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.modal-body .text-muted {
+  color: var(--text-muted);
 }
 </style>
