@@ -3,7 +3,8 @@
     <div class="container">
       <div class="page-header">
         <div>
-          <h1>💰 Finanzas</h1>
+          <h2 class="inline">💰</h2>
+          <h1 class="inline">Finanzas</h1>
           <p>Controla los ingresos y gastos de tu club</p>
         </div>
         <div class="header-actions">
@@ -444,6 +445,10 @@ const formatDate = (dateString) => {
   background: var(--bg-primary);
 }
 
+.inline {
+  display: inline-block;
+  margin: 0;
+}
 .page-header {
   display: flex;
   align-items: center;

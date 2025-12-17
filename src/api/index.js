@@ -98,10 +98,10 @@ export const playersAPI = {
     getAll: (clubId, params) => apiClient.get(`/clubes/${clubId}/jugadores`, { params }),
     create: (clubId, playerData) => apiClient.post(`/clubes/${clubId}/jugadores`, playerData),
 
-    // The following are not explicitly in serverlessJugadores.yml
-    getById: (id) => apiClient.get(`/jugadores/${id}`),
-    update: (playerData) => apiClient.put('/jugadores/actualizar', playerData),
-    delete: (id) => apiClient.delete(`/jugadores/${id}`),
+    // Corrected endpoints to include clubId
+    getById: (clubId, id) => apiClient.get(`/clubes/${clubId}/jugadores/${id}`),
+    update: (clubId, playerId, data) => apiClient.put(`/clubes/${clubId}/jugadores/${playerId}`, data),
+    delete: (clubId, id) => apiClient.delete(`/clubes/${clubId}/jugadores/${id}`),
     search: (clubId, query) => apiClient.get(`/clubes/${clubId}/jugadores/buscar`, { params: { query } }),
 };
 

@@ -8,6 +8,11 @@
         </button>
       </div>
 
+      <!-- Feedback Message -->
+      <div v-if="feedbackMessage" :class="['feedback-message', feedbackType]">
+        {{ feedbackMessage }}
+      </div>
+
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
@@ -113,23 +118,9 @@
            <div class="detail-group card">
              <h3>Membresía</h3>
              
-             <div class="form-group checkbox-group">
-                <label>
-                  <input type="checkbox" v-model="form.es_socio" :disabled="!isEditing" />
-                  <span>⭐ Es Socio</span>
-                </label>
-             </div>
-             
-             <div class="form-group checkbox-group">
-                <label>
-                  <input type="checkbox" v-model="form.es_jugador" :disabled="!isEditing" />
-                  <span>⚽ Es Jugador</span>
-                </label>
-             </div>
-
              <div class="form-group">
-                <label>Club ID</label>
-                <div class="detail-value sm">{{ player.club_id }}</div>
+                <label>Mi Club</label>
+                <div class="detail-value sm">{{ player.nombre_club.toUpperCase() }}</div>
              </div>
            </div>
         </div>
@@ -144,172 +135,262 @@
       </div>
 
     </div>
+    <!-- Confirmation Modal -->
+    <ConfirmationModal 
+      :isOpen="modalState.isOpen"
+      :title="modalState.title"
+      :message="modalState.message"
+      :type="modalState.type"
+      @close="closeConfirmModal"
+      @confirm="handleModalConfirm"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { playersAPI } from '../../api';
+import ConfirmationModal from '../../components/ConfirmationModal.vue';
+import { useAuthStore } from '../../stores/auth'; 
+import { useClubStore } from '../../stores/club';
+import { playersAPI } from '../../api'; 
 
 const route = useRoute();
 const router = useRouter();
-const playerId = route.params.id;
+const authStore = useAuthStore();
+const clubStore = useClubStore();
 
+const playerId = route.params.id;
 const player = ref(null);
 const loading = ref(true);
 const saving = ref(false);
+const feedbackMessage = ref(null);
+const feedbackType = ref('');
+
+const form = reactive({
+    nombre_completo: '',
+    rut: '',
+    fecha_nacimiento: '',
+    email: '',
+    telefono: '',
+    es_socio: false,
+    es_jugador: false,
+    path_foto: ''
+});
+
 const isEditing = ref(false);
 
-// Form state
-const form = reactive({
-  nombre_completo: '',
-  rut: '',
-  email: '',
-  telefono: '',
-  fecha_nacimiento: '',
-  es_socio: false,
-  es_jugador: false,
-  activo: true,
-  path_foto: ''
+// Modal State
+const modalState = reactive({
+  isOpen: false,
+  title: '',
+  message: '',
+  type: 'primary',
+  confirmAction: null
 });
 
-onMounted(async () => {
-  await loadPlayer();
-});
+// Helper to open modal
+const confirmAction = (title, message, type, action) => {
+  modalState.title = title;
+  modalState.message = message;
+  modalState.type = type;
+  modalState.confirmAction = action;
+  modalState.isOpen = true;
+};
+
+const handleModalConfirm = async () => {
+  if (modalState.confirmAction) {
+    await modalState.confirmAction();
+  }
+  closeConfirmModal();
+};
+
+const closeConfirmModal = () => {
+    modalState.isOpen = false;
+    modalState.confirmAction = null;
+};
+
+const showFeedback = (message, type = 'success') => {
+    feedbackMessage.value = message;
+    feedbackType.value = type;
+    setTimeout(() => {
+        feedbackMessage.value = null;
+    }, 3000);
+};
+
+const populateForm = () => {
+    if (!player.value) return;
+    Object.assign(form, {
+      nombre_completo: player.value.nombre_completo,
+      rut: player.value.rut,
+      fecha_nacimiento: player.value.fecha_nacimiento ? player.value.fecha_nacimiento.split('T')[0] : '',
+      email: player.value.email,
+      telefono: player.value.telefono,
+      es_socio: player.value.es_socio,
+      es_jugador: player.value.es_jugador,
+      path_foto: player.value.path_foto
+    });
+};
 
 const loadPlayer = async () => {
   loading.value = true;
+  feedbackMessage.value = null; // Limpiar mensajes previos
+
   try {
-    let data = null;
-
-    // Check if player data was passed via router state
-    if (history.state && history.state.playerStr) {
-       try {
-         data = JSON.parse(history.state.playerStr);
-         console.log('Loaded player from state:', data);
-       } catch (e) {
-         console.error('Error parsing player state', e);
-       }
+    // 1. Intentar cargar desde el estado de navegación
+    if (history.state?.playerStr) {
+        try {
+            const playerFromState = JSON.parse(history.state.playerStr);
+            // Verificar si el ID coincide
+            if (String(playerFromState.id) === String(playerId)) {
+                console.log("Cargando jugador desde estado local");
+                player.value = playerFromState;
+                populateForm();
+                loading.value = false;
+                return; // Éxito, salir
+            }
+        } catch (e) {
+            console.warn("Error parseando playerStr del estado", e);
+            // No lanzar error aquí, intentar cargar desde API
+        }
     }
 
-    // Fallback to API if no state or parse error
-    if (!data) {
-        console.log('Fetching player from API...');
-        const response = await playersAPI.getById(playerId);
-        data = response.data || response; 
-    }
-
-    player.value = data;
+    // 2. Si no hay estado o falló, cargar desde API
+    console.log("Cargando jugador desde API...");
+    // Necesitamos el clubId, si no está en params, lo intentamos sacar del store o query
+    const clubId = route.query.club || clubStore.selectedClub.value?.id;
     
-    // Init form
-    Object.assign(form, {
-        nombre_completo: data.nombre_completo,
-        rut: data.rut,
-        email: data.email,
-        telefono: data.telefono,
-        fecha_nacimiento: data.fecha_nacimiento ? data.fecha_nacimiento.split('T')[0] : '', // Format for date input
-        es_socio: data.es_socio,
-        es_jugador: data.es_jugador,
-        activo: data.activo,
-        path_foto: data.path_foto
-    });
+    if (!clubId) {
+        throw new Error("No se ha especificado el club");
+    }
+
+    const response = await playersAPI.getById(clubId, playerId);
+    
+    if (response.data) {
+        player.value = response.data;
+        populateForm();
+    } else {
+        throw new Error("No se encontraron datos del jugador");
+    }
 
   } catch (error) {
     console.error('Error loading player:', error);
+    // Solo mostrar error si realmente falló todo y no tenemos datos
+    if (!player.value) {
+        showFeedback('Error al cargar datos del jugador: ' + (error.message || 'Error desconocido'), 'error');
+    }
   } finally {
     loading.value = false;
   }
 };
 
-const goBack = () => {
-  router.push('/players');
-};
 
 const toggleEdit = () => {
-  isEditing.value = true;
+    populateForm(); // Asegurar que el form tenga los datos actuales antes de editar
+    isEditing.value = true;
 };
 
 const cancelEdit = () => {
-  isEditing.value = false;
-  // Reset form to current player values
-  if (player.value) {
-      Object.assign(form, {
-        nombre_completo: player.value.nombre_completo,
-        rut: player.value.rut,
-        email: player.value.email,
-        telefono: player.value.telefono,
-        fecha_nacimiento: player.value.fecha_nacimiento ? player.value.fecha_nacimiento.split('T')[0] : '',
-        es_socio: player.value.es_socio,
-        es_jugador: player.value.es_jugador,
-        activo: player.value.activo
-      });
-  }
+    isEditing.value = false;
+    // Reset form
+    populateForm();
 };
 
+const goBack = () => {
+    router.back();
+};
+
+onMounted(() => {
+    loadPlayer();
+});
+
 const saveChanges = async () => {
-  if (!confirm('¿Guardar cambios?')) return;
-  
-  saving.value = true;
-  try {
-    const updateData = {
-        id: playerId,
-        ...form
-    };
-    
-    await playersAPI.update(updateData);
-    
-    // Refresh data
-    await loadPlayer();
-    isEditing.value = false;
-  } catch (error) {
-    console.error('Error updating player:', error);
-    alert('Error al actualizar el jugador. Verifica que el backend soporte esta operación.');
-  } finally {
-    saving.value = false;
-  }
+  confirmAction(
+    'Confirmar Cambios',
+    '¿Estás seguro de que deseas guardar los cambios realizados?',
+    'primary',
+    async () => {
+        saving.value = true;
+        feedbackMessage.value = null;
+
+        try {
+            const updateData = {
+                ...form,
+                usuario_id: authStore.user.value?.id
+            };
+            
+            // Usar el endpoint actualizado con clubId
+            await playersAPI.update(player.value.club_id, playerId, updateData);
+            
+            showFeedback('Jugador actualizado correctamente', 'success');
+            
+            // Actualizar datos locales sin recargar API si es posible
+            Object.assign(player.value, updateData);
+            
+            // Opcional: Recargar desde API para asegurar consistencia
+            // await loadPlayer(); 
+            
+            isEditing.value = false;
+
+        } catch (error) {
+            console.error('Error updating player:', error);
+            showFeedback('Error al actualizar: ' + (error.response?.data?.message || error.message), 'error');
+        } finally {
+            saving.value = false;
+        }
+    }
+  );
 };
 
 const confirmDelete = async () => {
-    if (!confirm('¿Estás seguro de ELIMINAR logicamente a este jugador? Se marcará como inactivo.')) return;
-    
-    try {
-        // Logical delete: update activo = false
-        // Or if API supports delete -> playersAPI.delete(playerId)
-        // User requested: "eliminacion logica osea estado activo = false"
-        // If the backend `delete` endpoint does logical delete, great. 
-        // If not, we might need to use `update` with `activo: false`.
-        // Let's try update first as it's safer for "logical" delete if delete is destructive.
-        
-        await playersAPI.update({
-            id: playerId,
-            activo: false
-        });
-        
-        alert('Jugador eliminado correctamente.');
-        router.push('/players');
-        
-    } catch (error) {
-        console.error('Error deleting player:', error);
-         alert('Error al desactivar el jugador.');
-    }
+    confirmAction(
+        'Eliminar Jugador',
+        '¿Estás seguro de ELIMINAR logicamente a este jugador? Se marcará como inactivo.',
+        'danger',
+        async () => {
+            saving.value = true;
+            try {
+                const updateData = {
+                    activo: false,
+                    usuario_id: authStore.user.value?.id
+                };
+
+                await playersAPI.update(player.value.club_id, playerId, updateData);
+                
+                showFeedback('Jugador eliminado (lógico) correctamente', 'success');
+                
+                setTimeout(() => {
+                    router.push('/players');
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error deleting player:', error);
+                showFeedback('Error al eliminar jugador', 'error');
+                saving.value = false;
+            }
+        }
+    );
 };
 
-
-// Photo Handlers (Mock logic mostly, as no endpoint specified)
+// Photo Handlers 
 const handleAddPhoto = () => {
     const url = prompt('Ingrese URL de la foto (o implemente subida de archivos real):', 'https://via.placeholder.com/150');
     if (url) {
         form.path_foto = url;
-        player.value.path_foto = url; // optimistic update
+        player.value.path_foto = url; 
     }
 };
 
 const handleDeletePhoto = () => {
-    if(confirm('¿Eliminar foto?')) {
-        form.path_foto = null;
-        player.value.path_foto = null; // optimistic update
-    }
+    confirmAction(
+        'Eliminar Foto',
+        '¿Estás seguro de eliminar la foto del jugador?',
+        'danger',
+        () => {
+            form.path_foto = null;
+            player.value.path_foto = null;
+        }
+    );
 };
 
 // Utilities
@@ -522,5 +603,25 @@ const getCategoryClass = (birthDate) => {
         flex-direction: row;
         justify-content: center;
     }
+}
+
+
+.feedback-message {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  font-weight: 600;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+.feedback-message.success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.feedback-message.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 </style>

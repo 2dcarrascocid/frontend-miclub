@@ -3,7 +3,8 @@
     <div class="container">
       <div class="page-header">
         <div>
-          <h1>🏆 Mis Clubes</h1>
+          <h2 class="inline">🏆</h2>
+          <h1 class="inline">Mis Clubes</h1>
           <p>Administra tus clubes deportivos</p>
         </div>
         <button class="btn btn-primary" @click="openCreateModal">
@@ -402,6 +403,11 @@ const closeModal = () => {
   display: block;
   margin-bottom: var(--spacing-md);
   opacity: 0.5;
+}
+
+.inline {
+  display: inline-block;
+  margin: 0;
 }
 
 @keyframes slideUp {

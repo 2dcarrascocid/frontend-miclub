@@ -3,7 +3,8 @@
     <div class="container">
       <div class="page-header">
         <div>
-          <h1>👥 Jugadores</h1>
+          <h2 class="inline">👥</h2>
+          <h1 class="inline">Jugadores</h1>
           <p>Gestiona tu equipo de jugadores</p>
         </div>
         <div class="header-actions">
@@ -53,8 +54,7 @@
               <th>Teléfono</th>
               <th>Edad</th>
               <th>Categoría</th>
-              <th>Estado</th>
-              <th>Acciones</th>
+              <th>Acción</th>
             </tr>
           </thead>
           <tbody>
@@ -75,12 +75,6 @@
                 <span :class="['badge', getCategoryClass(player.fecha_nacimiento)]">
                   {{ getCategory(player.fecha_nacimiento) }}
                 </span>
-              </td>
-              <td>
-                <div class="status-icons">
-                  <span v-if="player.es_socio" title="Socio">⭐</span>
-                  <span v-if="player.es_jugador" title="Jugador">⚽</span>
-                </div>
               </td>
               <td>
                 <div class="action-buttons">
@@ -111,94 +105,121 @@
         </div>
       </div>
     </div>
-
-    <!-- Create/Edit Modal -->
-    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>{{ isEditing ? 'Editar Jugador' : 'Nuevo Jugador' }}</h2>
-          <button class="close-btn" @click="closeModal">×</button>
-        </div>
-        
-        <form @submit.prevent="handleSubmit">
-          <div class="form-group">
-            <label>Nombre Completo *</label>
-            <input 
-              type="text" 
-              v-model="form.nombre_completo" 
-              placeholder="Ej: Alexis Sánchez"
-              required
-              class="form-input"
-            >
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>RUT</label>
-              <input 
-                type="text" 
-                v-model="form.rut" 
-                placeholder="12.345.678-9"
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>Fecha de Nacimiento</label>
-              <input 
-                type="date" 
-                v-model="form.fecha_nacimiento" 
-                class="form-input"
-              >
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Email</label>
-              <input 
-                type="email" 
-                v-model="form.email" 
-                placeholder="jugador@email.com"
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>Teléfono</label>
-              <input 
-                type="tel" 
-                v-model="form.telefono" 
-                placeholder="+56 9 1234 5678"
-                class="form-input"
-              >
-            </div>
-          </div>
-
-          <div class="form-group checkboxes">
-            <label class="checkbox-label">
-              <input 
-                type="checkbox" 
-                v-model="form.es_socio"
-              >
-              <span>⭐ Es Socio</span>
-            </label>
-            <label class="checkbox-label">
-              <input 
-                type="checkbox" 
-                v-model="form.es_jugador"
-              >
-              <span>⚽ Es Jugador</span>
-            </label>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn btn-outline" @click="closeModal">Cancelar</button>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">
-              {{ submitting ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Guardar') }}
-            </button>
-          </div>
-        </form>
-      </div>
+<div
+  v-if="showCreateModal"
+  class="modal-overlay"
+  @click="closeModal"
+>
+  <div
+    class="modal-content"
+    @click.stop
+  >
+    <!-- HEADER -->
+    <div class="modal-header">
+      <h2>{{ isEditing ? 'Editar Jugador' : 'Nuevo Jugador' }}</h2>
+      <button
+        type="button"
+        class="close-btn"
+        @click="closeModal"
+        aria-label="Cerrar modal"
+      >
+        ×
+      </button>
     </div>
+
+    <!-- FORM -->
+    <form @submit.prevent="handleSubmit">
+      <!-- Nombre -->
+      <div class="form-group">
+        <label>Nombre Completo *</label>
+        <input
+          type="text"
+          v-model="form.nombre_completo"
+          placeholder="Ej: Alexis Sánchez"
+          required
+          class="form-input"
+        />
+      </div>
+
+      <!-- Folio -->
+      <div class="form-group">
+        <label>Folio</label>
+        <input
+          type="number"
+          v-model.number="form.folio"
+          placeholder="Ej: 123"
+          min="1"
+          class="form-input"
+        />
+      </div>
+
+      <!-- RUT + Fecha -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>RUT</label>
+          <input
+            type="text"
+            v-model="form.rut"
+            placeholder="12.345.678-9"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Fecha de Nacimiento</label>
+          <input
+            type="date"
+            v-model="form.fecha_nacimiento"
+            class="form-input"
+          />
+        </div>
+      </div>
+
+      <!-- Email + Teléfono -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            v-model="form.email"
+            placeholder="jugador@email.com"
+            class="form-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Teléfono</label>
+          <input
+            type="tel"
+            v-model="form.telefono"
+            placeholder="+56 9 1234 5678"
+            class="form-input"
+          />
+        </div>
+      </div>
+
+      <!-- ACCIONES -->
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn btn-outline"
+          @click="closeModal"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="submit"
+          class="btn btn-primary"
+          :disabled="submitting"
+        >
+          {{ submitting ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Guardar') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
   </div>
 </template>
 
@@ -325,18 +346,28 @@ const prevPage = () => {
 
 const handleSubmit = async () => {
   submitting.value = true;
+
   try {
     const playerData = { ...form };
 
     if (isEditing.value) {
-      await playersAPI.update({ ...playerData, id: editingId.value });
+      await playersAPI.update({
+        ...playerData,
+        id: editingId.value
+      });
     } else {
+      console.log("Guarda datos",playerData )
       await playersAPI.create(selectedClubId.value, playerData);
     }
 
-    // Reload current page to see changes
-    await loadPlayers();
-    closeModal();
+    // 🔄 RESET + REFRESH
+    currentPage.value = 1;
+    pageTokens.value = [null];
+    hasNextPage.value = false;
+
+    await loadPlayers();   // recarga jugadores
+    closeModal();          // cierra modal
+
   } catch (error) {
     console.error('Error saving player:', error);
     alert('Error al guardar el jugador');
@@ -344,6 +375,7 @@ const handleSubmit = async () => {
     submitting.value = false;
   }
 };
+
 
 const openCreateModal = () => {
   resetForm();
@@ -358,9 +390,7 @@ const editPlayer = (player) => {
   form.email = player.email;
   form.telefono = player.telefono;
   form.fecha_nacimiento = player.fecha_nacimiento;
-  form.es_socio = player.es_socio;
   form.es_jugador = player.es_jugador;
-  form.usuario_id = player.usuario_id;
   showCreateModal.value = true;
 };
 
@@ -385,7 +415,8 @@ const viewPlayer = (player) => {
 };
 
 const closeModal = () => {
-  showCreateModal = false;
+  console.log("Cierra modal")
+  showCreateModal.value = false;
   resetForm();
 };
 
@@ -431,7 +462,7 @@ const getCategory = (birthDate) => {
   if (age >= 55) return 'Dorado';
   if (age > 45) return 'Super Senior';
   if (age >= 35) return 'Senior';
-  return '';
+  return 'SIN CATEGORIA';
 };
 
 const getCategoryClass = (birthDate) => {
@@ -466,6 +497,11 @@ const getCategoryClass = (birthDate) => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.inline {
+  display: inline-block;
+  margin: 0;
 }
 
 .page-header p {

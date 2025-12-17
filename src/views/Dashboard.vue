@@ -228,7 +228,8 @@ const createForm = reactive({
 
 const stats = ref([
   { icon: '⚽', label: 'Jugadores', value: '0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
-  { icon: '⭐', label: 'Socios', value: '0', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
+  { icon: '📈', label: 'Ingresos', value: '$0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+  { icon: '📉', label: 'Egresos', value: '$0', gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
   { icon: '💰', label: 'Balance', value: '$0', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
 ]);
 
@@ -261,16 +262,16 @@ const loadClubStats = async () => {
     const { total_jugadores_activos, total_socios_no_jugadores } = summaryRes.data;
     
     stats.value[0].value = (total_jugadores_activos || 0).toString();
-    stats.value[1].value = (total_socios_no_jugadores || 0).toString();
+
 
     // Load Finance Summary
     const financeRes = await financeAPI.getFinancialSummary(selectedClub.value.id);
     const { ingresos, egresos, balance: balanceTotal } = financeRes.data;
     
     balance.value = balanceTotal;
-    stats.value[2].value = formatCurrency(ingresos || 0);
-    stats.value[3].value = formatCurrency(egresos || 0);
-    stats.value[4].value = formatCurrency(balanceTotal || 0);
+    stats.value[1].value = formatCurrency(ingresos || 0);
+    stats.value[2].value = formatCurrency(egresos || 0);
+    stats.value[3].value = formatCurrency(balanceTotal || 0);
     
   } catch (error) {
     console.error('Error loading stats:', error);
