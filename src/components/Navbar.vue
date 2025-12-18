@@ -25,6 +25,10 @@
           <span class="nav-icon">💰</span>
           Finanzas
         </router-link>
+        <router-link to="/events" class="nav-link" @click="closeMobileMenu">
+          <span class="nav-icon">📅</span>
+          Eventos
+        </router-link>
       </div>
 
       <div class="navbar-actions">

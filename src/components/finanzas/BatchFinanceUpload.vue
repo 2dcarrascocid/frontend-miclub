@@ -204,6 +204,7 @@
 import { ref, reactive } from 'vue';
 import { playersAPI, financeAPI } from '../../api';
 
+
 const props = defineProps({
   clubId: {
     type: String,

@@ -14,6 +14,9 @@
               {{ club.nombre }}
             </option>
           </select>
+          <button class="btn btn-secondary" @click="showBatchUpload = true" :disabled="!selectedClubId" style="margin-right: 0.5rem;">
+            📄 Carga Masiva
+          </button>
           <button class="btn btn-primary" @click="openCreateModal" :disabled="!selectedClubId">
             ➕ Nuevo Jugador
           </button>
@@ -274,6 +277,12 @@
 </div>
 
     </div>
+    <BatchPlayerUpload 
+      v-if="showBatchUpload" 
+      :clubId="selectedClubId" 
+      @close="showBatchUpload = false"
+      @success="() => { showBatchUpload = false; loadPlayers(); }"
+    />
   </div>
 </template>
 
@@ -283,6 +292,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
 import { clubsAPI, playersAPI, categoriesAPI } from '../api';
+import BatchPlayerUpload from './../components/players/BatchPlayerUpload.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -294,6 +304,7 @@ const players = ref([]);
 const selectedClubId = ref('');
 const loading = ref(false);
 const showCreateModal = ref(false);
+const showBatchUpload = ref(false);
 const submitting = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);

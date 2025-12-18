@@ -88,7 +88,7 @@ export const clubsAPI = {
     create: (clubData) => apiClient.post('/clubes', clubData),
     // The following are not explicitly in serverlessClubes.yml but kept for future use
     getById: (id) => apiClient.get(`/clubes/${id}`),
-    update: (clubData) => apiClient.put('/clubes', clubData),
+    update: (clubData) => apiClient.put(`/clubes/${clubData.id}`, clubData),
     delete: (id) => apiClient.delete(`/clubes/${id}`),
 };
 
@@ -103,6 +103,26 @@ export const playersAPI = {
     update: (clubId, playerId, data) => apiClient.put(`/clubes/${clubId}/jugadores/${playerId}`, data),
     delete: (clubId, id) => apiClient.delete(`/clubes/${clubId}/jugadores/${id}`),
     search: (clubId, query) => apiClient.get(`/clubes/${clubId}/jugadores/buscar`, { params: { query } }),
+
+    // Bulk Upload
+    downloadTemplate: (clubId) => apiClient.get(`/clubes/${clubId}/jugadores/plantilla`),
+    bulkUpload: (clubId, data) => apiClient.post(`/clubes/${clubId}/jugadores/carga-masiva`, data),
+};
+
+// ==================== EVENTS API ====================
+export const eventsAPI = {
+    getAll: (clubId, params) => apiClient.get(`/clubes/${clubId}/eventos`, { params }),
+    getById: (clubId, id) => apiClient.get(`/clubes/${clubId}/eventos/${id}`),
+    create: (clubId, data) => apiClient.post(`/clubes/${clubId}/eventos`, data),
+    update: (clubId, id, data) => apiClient.put(`/clubes/${clubId}/eventos/${id}`, data),
+    
+    // Players in event
+    addPlayer: (clubId, eventId, data) => apiClient.post(`/clubes/${clubId}/eventos/${eventId}/jugadores`, data),
+    removePlayer: (clubId, eventId, playerId) => apiClient.delete(`/clubes/${clubId}/eventos/${eventId}/jugadores/${playerId}`),
+    registerPayment: (clubId, eventId, playerId, data) => apiClient.post(`/clubes/${clubId}/eventos/${eventId}/jugadores/${playerId}/pagar`, data),
+    
+    // Close event
+    close: (clubId, eventId) => apiClient.post(`/clubes/${clubId}/eventos/${eventId}/cerrar`),
 };
 
 // ==================== DASHBOARD API ====================

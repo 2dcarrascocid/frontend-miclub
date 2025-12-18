@@ -97,6 +97,21 @@
             ></textarea>
           </div>
 
+          <div class="form-group">
+            <label class="form-label">Logo del Club</label>
+            <div class="file-upload-container">
+              <input 
+                type="file" 
+                @change="handleFileChange" 
+                accept="image/*"
+                class="file-input"
+              >
+              <div v-if="previewImage || form.path_foto" class="image-preview mt-2">
+                <img :src="previewImage || form.path_foto" alt="Vista previa" class="preview-img">
+              </div>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="button" class="btn btn-outline" @click="closeModal">Cancelar</button>
             <button type="submit" class="btn btn-primary" :disabled="submitting">
@@ -114,6 +129,7 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { clubsAPI } from '../api';
+import axios from 'axios';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -123,10 +139,13 @@ const showCreateModal = ref(false);
 const submitting = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);
+const selectedFile = ref(null);
+const previewImage = ref(null);
 
 const form = reactive({
   nombre: '',
-  descripcion: ''
+  descripcion: '',
+  path_foto: null
 });
 
 onMounted(() => {
@@ -183,12 +202,72 @@ const openCreateModal = () => {
     isEditing.value = false;
     form.nombre = '';
     form.descripcion = '';
+    form.path_foto = null;
+    selectedFile.value = null;
+    previewImage.value = null;
     showCreateModal.value = true;
+};
+
+const handleFileChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    selectedFile.value = file;
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImage.value = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+// Simple SHA-1 helper using Web Crypto API
+async function sha1(str) {
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
+  return Array.from(new Uint8Array(hash))
+    .map(v => v.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+const uploadToCloudinary = async (file) => {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY;
+  const apiSecret = import.meta.env.VITE_CLOUDINARY_API_SECRET;
+  
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Cloudinary environment variables missing');
+  }
+
+  const timestamp = Math.round((new Date()).getTime() / 1000);
+  
+  // Generate signature
+  const msg = `timestamp=${timestamp}${apiSecret}`;
+  const signature = await sha1(msg);
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('api_key', apiKey);
+  formData.append('timestamp', timestamp);
+  formData.append('signature', signature);
+  
+  const response = await axios.post(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
+    formData
+  );
+  
+  return response.data.secure_url;
 };
 
 const handleSubmit = async () => {
   submitting.value = true;
   try {
+    // Upload image if selected
+    if (selectedFile.value) {
+      const imageUrl = await uploadToCloudinary(selectedFile.value);
+      form.path_foto = imageUrl;
+    }
+
     const userId = authStore.user.value?.id;
     const clubData = {
       ...form,
@@ -206,7 +285,7 @@ const handleSubmit = async () => {
     closeModal();
   } catch (error) {
     console.error('Error saving club:', error);
-    alert('Error al guardar el club');
+    alert('Error al guardar el club: ' + (error.message || 'Error desconocido'));
   } finally {
     submitting.value = false;
   }
@@ -217,6 +296,9 @@ const editClub = (club) => {
   editingId.value = club.id;
   form.nombre = club.nombre;
   form.descripcion = club.descripcion;
+  form.path_foto = club.path_foto;
+  previewImage.value = null; // Reset preview, will show form.path_foto if available
+  selectedFile.value = null;
   showCreateModal.value = true;
 };
 
@@ -238,6 +320,9 @@ const closeModal = () => {
   editingId.value = null;
   form.nombre = '';
   form.descripcion = '';
+  form.path_foto = null;
+  selectedFile.value = null;
+  previewImage.value = null;
 };
 </script>
 
@@ -298,6 +383,21 @@ const closeModal = () => {
   border: none;
   cursor: pointer;
   font-size: 1.1rem;
+}
+
+.preview-img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+}
+
+.file-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
   padding: 4px;
   border-radius: var(--radius-md);
   transition: background 0.2s;
