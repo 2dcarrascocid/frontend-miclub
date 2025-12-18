@@ -8,9 +8,10 @@ Frontend moderno para la aplicación de gestión de clubes deportivos Fair Play 
 - 🔐 **Autenticación Completa**: Login, registro y gestión de sesiones
 - ⚽ **Gestión de Partidos**: Crear, listar y gestionar partidos deportivos
 - 👥 **Sistema de Jugadores**: Administración de jugadores y equipos
-- 🏆 **Clubes Deportivos**: Gestión de clubes y organizaciones
+- 🏆 **Clubes Deportivos**: Gestión completa de clubes (Crear, Editar con logo, Eliminar)
 - 📱 **Responsive**: Diseño adaptable a todos los dispositivos
 - 🎨 **Animaciones**: Transiciones y efectos visuales premium
+- ☁️ **Cloudinary**: Integración para carga de imágenes (logos de clubes)
 
 ## 🛠️ Tecnologías
 
@@ -18,6 +19,7 @@ Frontend moderno para la aplicación de gestión de clubes deportivos Fair Play 
 - **Vite**: Build tool ultrarrápido
 - **Vue Router**: Navegación SPA
 - **Axios**: Cliente HTTP
+- **Cloudinary**: Gestión de imágenes en la nube
 - **CSS Variables**: Sistema de diseño modular
 
 ## 📦 Instalación
@@ -37,6 +39,11 @@ Edita el archivo `.env`:
 ```env
 VITE_API_BASE_URL=http://localhost:3000
 VITE_API_KEY=tu-api-key-aqui
+
+# Cloudinary Configuration
+VITE_CLOUDINARY_CLOUD_NAME=tu-cloud-name
+VITE_CLOUDINARY_API_KEY=tu-api-key
+VITE_CLOUDINARY_API_SECRET=tu-api-secret
 ```
 
 3. **Iniciar servidor de desarrollo**:

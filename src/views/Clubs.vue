@@ -398,11 +398,11 @@ const closeModal = () => {
   flex-direction: column;
   gap: 0.5rem;
 }
-  padding: 4px;
+  /* padding: 4px;
   border-radius: var(--radius-md);
   transition: background 0.2s;
   opacity: 0.7;
-}
+} */
 
 .btn-icon:hover {
   background: var(--bg-hover);
