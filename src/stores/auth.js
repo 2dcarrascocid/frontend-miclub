@@ -1,4 +1,4 @@
-import { reactive, computed } from 'vue';
+import { reactive, computed, toRefs } from 'vue';
 import { authAPI } from '../api';
 
 const state = reactive({
@@ -117,50 +117,41 @@ export const useAuthStore = () => {
     };
 
     const logout = async () => {
-        state.loading = true;
-
         try {
             if (state.sessionId) {
                 await authAPI.logout(state.sessionId);
             }
         } catch (error) {
-            console.error('Error al cerrar sesión:', error);
+            console.error('Error durante logout:', error);
         } finally {
-            // Limpiar localStorage
             localStorage.removeItem('user');
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('sessionId');
-
-            // Limpiar estado
+            localStorage.removeItem('userClubs');
+            localStorage.removeItem('userRoles');
+            
             state.user = null;
             state.accessToken = null;
             state.refreshToken = null;
             state.sessionId = null;
             state.isAuthenticated = false;
-            state.loading = false;
+            state.userClubs = [];
+            state.userRoles = [];
         }
     };
 
-    const updateUser = (userData) => {
-        state.user = { ...state.user, ...userData };
-        localStorage.setItem('user', JSON.stringify(state.user));
+    const updateUserData = (userData) => {
+        state.user = userData;
+        localStorage.setItem('user', JSON.stringify(userData));
     };
 
     return {
-        // State
-        state,
-
-        // Getters
-        user: computed(() => state.user),
-        isAuthenticated: computed(() => state.isAuthenticated),
-        loading: computed(() => state.loading),
-        error: computed(() => state.error),
-
-        // Actions
+        ...toRefs(state),
+        state, // Expose reactive state object for direct access if needed
         login,
         register,
         logout,
-        updateUser,
+        updateUserData
     };
 };

@@ -121,6 +121,25 @@
         </form>
       </div>
     </div>
+
+    <!-- Notification Toast -->
+    <div v-if="notification.show" class="notification-toast" :class="notification.type">
+      <span class="notification-icon">{{ notification.type === 'success' ? '✅' : (notification.type === 'error' ? '⚠️' : 'ℹ️') }}</span>
+      <span class="notification-message">{{ notification.message }}</span>
+      <button class="notification-close" @click="notification.show = false">×</button>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <ConfirmationModal
+      :is-open="showConfirmModal"
+      title="Eliminar Club"
+      message="¿Estás seguro de que deseas eliminar este club? Esta acción no se puede deshacer."
+      type="danger"
+      confirm-text="Eliminar"
+      @close="showConfirmModal = false"
+      @confirm="confirmDelete"
+    />
+
   </div>
 </template>
 
@@ -129,6 +148,7 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { clubsAPI } from '../api';
+import ConfirmationModal from '../components/ConfirmationModal.vue';
 import axios from 'axios';
 
 const router = useRouter();
@@ -141,12 +161,29 @@ const isEditing = ref(false);
 const editingId = ref(null);
 const selectedFile = ref(null);
 const previewImage = ref(null);
+const showConfirmModal = ref(false);
+const clubToDelete = ref(null);
 
 const form = reactive({
   nombre: '',
   descripcion: '',
   path_foto: null
 });
+
+const notification = reactive({
+  show: false,
+  message: '',
+  type: 'success'
+});
+
+const showNotification = (message, type = 'success') => {
+  notification.message = message;
+  notification.type = type;
+  notification.show = true;
+  setTimeout(() => {
+    notification.show = false;
+  }, 3000);
+};
 
 onMounted(() => {
   loadClubs();
@@ -308,9 +345,10 @@ const deleteClub = async (id) => {
   try {
     await clubsAPI.delete(id);
     await loadClubs();
+    showNotification('Club eliminado correctamente', 'success');
   } catch (error) {
     console.error('Error deleting club:', error);
-    alert('Error al eliminar el club');
+    showNotification('Error al eliminar el club', 'error');
   }
 };
 

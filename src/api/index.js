@@ -80,6 +80,8 @@ export const authAPI = {
     logout: (sessionId) => apiClient.post('/auth/logout', { sessionId }), // Note: Not explicitly in serverless.yml
     refreshToken: (refreshToken) => apiClient.post('/auth/refresh', { refreshToken }), // Note: Not explicitly in serverless.yml
     googleLogin: (googleData) => apiClient.post('/auth/google', googleData),
+    getProfile: () => apiClient.get('/auth/profile'),
+    updateProfile: (data) => apiClient.put('/auth/profile', data),
 };
 
 // ==================== CLUBS API ====================

@@ -180,6 +180,13 @@
       </div>
     </div>
 
+    <!-- Notification Toast -->
+    <div v-if="notification.show" class="notification-toast" :class="notification.type">
+      <span class="notification-icon">{{ notification.type === 'success' ? '✅' : (notification.type === 'error' ? '⚠️' : 'ℹ️') }}</span>
+      <span class="notification-message">{{ notification.message }}</span>
+      <button class="notification-close" @click="notification.show = false">×</button>
+    </div>
+
   </div>
 </template>
 
@@ -192,10 +199,29 @@ import { clubsAPI, playersAPI, financeAPI, dashboardAPI } from '../api';
 const authStore = useAuthStore();
 const clubStore = useClubStore();
 
+const notification = reactive({
+  show: false,
+  message: '',
+  type: 'success'
+});
+
+const showNotification = (message, type = 'success') => {
+  notification.message = message;
+  notification.type = type;
+  notification.show = true;
+  setTimeout(() => {
+    notification.show = false;
+  }, 3000);
+};
+
 const userFullName = computed(() => {
   const meta = authStore.user.value?.metadata || {};
   if (meta.nombre && meta.apellido) return `${meta.nombre} ${meta.apellido}`;
   return meta.nombre || 'Usuario';
+});
+
+const userPhoto = computed(() => {
+    return authStore.user.value?.metadata?.path_foto || authStore.user.value?.path_foto || null;
 });
 
 const userRole = computed(() => {
@@ -214,7 +240,7 @@ const selectedClub = computed(() => clubStore.selectedClub.value);
 const loading = computed(() => clubStore.loading.value);
 
 const userInitials = computed(() => {
-  const name = selectedClub.value?.nombre || 'U';
+  const name = authStore.user.value?.metadata?.nombre || authStore.user.value?.nombre || 'U';
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 });
 
@@ -296,9 +322,10 @@ const handleCreateClub = async () => {
     showCreateModal.value = false;
     createForm.nombre = '';
     createForm.direccion = '';
+    showNotification('Club creado correctamente', 'success');
   } catch (error) {
     console.error('Error creating club:', error);
-    alert('Error al crear el club');
+    showNotification('Error al crear el club', 'error');
   } finally {
     submitting.value = false;
   }
@@ -651,5 +678,51 @@ function formatCurrency(value) {
 .inline {
   display: inline-block;
   margin: 0;
+}
+
+/* Notification Toast */
+.notification-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-lg);
+  color: white;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  animation: slideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+.notification-toast.success { background: #10b981; }
+.notification-toast.error { background: #ef4444; }
+.notification-toast.info { background: #3b82f6; }
+
+.notification-message {
+  flex: 1;
+  font-weight: 500;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  opacity: 0.8;
+  padding: 0;
+  line-height: 1;
+}
+
+.notification-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 </style>
