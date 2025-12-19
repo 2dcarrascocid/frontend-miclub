@@ -11,7 +11,7 @@
       <!-- SCENARIO 1: NO CLUBS (CREATE FIRST CLUB) -->
       <div v-else-if="clubs.length === 0" class="create-club-screen">
         <div class="welcome-header">
-          <h1>¡Bienvenido a Fair Play Chile! 👋</h1>
+          <h1>¡Bienvenido a Fairplay Club! 👋</h1>
           <p>Para comenzar, necesitas crear tu primer club deportivo.</p>
         </div>
         
@@ -61,7 +61,7 @@
             @click="selectClub(club)"
           >
             <div class="club-avatar">
-              {{ club.nombre.charAt(0).toUpperCase() }}
+              {{ getClubIcon(club) }}
             </div>
             <h3>{{ club.nombre }}</h3>
             <p>{{ club.cantidad_jugadores || 0 }} Jugadores</p>
@@ -79,11 +79,20 @@
       <div v-else class="dashboard-content">
         <div class="dashboard-header">
           <div class="welcome-section">
-           <div class="user-avatar">
-            {{ userInitials }}
-          </div>
             <p class="club-details">
-              <strong>{{ selectedClub.nombre.toUpperCase() }}</strong>
+              <span class="club-identity">
+                <span class="user-avatar">
+                  <img
+                    v-if="clubPhotoToRender"
+                    :src="clubPhotoToRender"
+                    alt="Foto del club"
+                    class="user-avatar-img"
+                    @error="clubPhotoError = true"
+                  />
+                  <span v-else>{{ clubInitials }}</span>
+                </span>
+                <strong>{{ selectedClub.nombre.toUpperCase() }}</strong>
+              </span>
               <span class="separator">|</span>
               <span class="user-info">
                 {{ userFullName }} 
@@ -193,7 +202,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
-import { useClubStore } from '../stores/club';
+import { useClubStore, getSportIcon } from '../stores/club';
 import { clubsAPI, playersAPI, financeAPI, dashboardAPI } from '../api';
 
 const authStore = useAuthStore();
@@ -214,14 +223,50 @@ const showNotification = (message, type = 'success') => {
   }, 3000);
 };
 
+const getClubIcon = (club) => {
+  const icon = getSportIcon(club?.deporte);
+  if (icon) return icon;
+  const fallback = club?.nombre?.charAt(0);
+  return fallback ? fallback.toUpperCase() : '🏆';
+};
+
 const userFullName = computed(() => {
   const meta = authStore.user.value?.metadata || {};
   if (meta.nombre && meta.apellido) return `${meta.nombre} ${meta.apellido}`;
   return meta.nombre || 'Usuario';
 });
 
-const userPhoto = computed(() => {
-    return authStore.user.value?.metadata?.path_foto || authStore.user.value?.path_foto || null;
+const clubPhotoError = ref(false);
+
+const clubPhotoRaw = computed(() => {
+  const club = clubStore.selectedClub.value;
+
+  return (
+    club?.foto_path ||
+    club?.path_foto ||
+    null
+  );
+});
+
+const clubPhoto = computed(() => {
+  const raw = clubPhotoRaw.value;
+  if (!raw) return null;
+
+  const value = raw.toString().trim();
+  if (!value) return null;
+
+  if (/^(data:|blob:)/i.test(value)) return value;
+  if (/^(https?:)?\/\//i.test(value)) return value;
+
+  const base = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  if (value.startsWith('/')) return `${base}${value}`;
+  return `${base}/${value}`;
+});
+
+const clubPhotoToRender = computed(() => (clubPhotoError.value ? null : clubPhoto.value));
+
+watch(clubPhotoRaw, () => {
+  clubPhotoError.value = false;
 });
 
 const userRole = computed(() => {
@@ -238,6 +283,11 @@ const userName = computed(() => userFullName.value.split(' ')[0]);
 const clubs = computed(() => clubStore.clubs.value);
 const selectedClub = computed(() => clubStore.selectedClub.value);
 const loading = computed(() => clubStore.loading.value);
+
+const clubInitials = computed(() => {
+  const name = selectedClub.value?.nombre || 'Club';
+  return name.split(' ').filter(Boolean).map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+});
 
 const userInitials = computed(() => {
   const name = authStore.user.value?.metadata?.nombre || authStore.user.value?.nombre || 'U';
@@ -446,6 +496,14 @@ function formatCurrency(value) {
   font-size: 0.875rem;
   color: white;
   box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.user-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .club-avatar {
@@ -484,6 +542,13 @@ function formatCurrency(value) {
   align-items: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
+}
+
+.club-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  white-space: nowrap;
 }
 
 .separator {

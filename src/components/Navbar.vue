@@ -3,8 +3,8 @@
     <div class="container navbar-content">
       <div class="navbar-brand">
         <router-link to="/dashboard" class="logo">
-          <span class="logo-icon">⚽</span>
-          <span class="logo-text">Fair Play Chile</span>
+          <span class="logo-icon">{{ clubIcon }}</span>
+          <span class="logo-text">Fairplay Club</span>
         </router-link>
       </div>
 
@@ -64,12 +64,20 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useClubStore, getSportIcon } from '../stores/club';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const clubStore = useClubStore();
 
 const mobileMenuOpen = ref(false);
 const userMenuOpen = ref(false);
+
+const clubIcon = computed(() => {
+  const selectedClub = clubStore.selectedClub.value;
+  console.log("selectedClub", selectedClub)
+  return selectedClub ? getSportIcon(selectedClub.deporte) : '🏆';
+});
 
 const userName = computed(() => {
   const meta = authStore.user.value?.metadata || {};
@@ -105,6 +113,8 @@ const handleLogout = async () => {
   router.push('/login');
   closeUserMenu();
 };
+
+
 </script>
 
 <style scoped>

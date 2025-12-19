@@ -33,7 +33,7 @@
         <div v-for="club in clubs" :key="club.id" class="card club-card">
           <div class="card-header flex justify-between items-center">
             <div class="club-icon">
-              {{ club.nombre.charAt(0).toUpperCase() }}
+              {{ getClubIcon(club) }}
             </div>
             <div class="club-actions">
               <button class="btn-icon" @click="editClub(club)" title="Editar">✏️</button>
@@ -46,6 +46,10 @@
             <p class="description">{{ club.descripcion || 'Sin descripción disponible' }}</p>
             
             <div class="club-meta mt-3">
+              <div class="meta-item">
+                <span class="label">Deporte:</span>
+                <span class="value">{{ formatSport(club.deporte) }}</span>
+              </div>
               <div class="meta-item">
                 <span class="label">Creado:</span>
                 <span class="value">{{ formatDate(club.created_at) }}</span>
@@ -98,6 +102,15 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">Deporte</label>
+            <select v-model="form.deporte" class="form-select" required>
+              <option v-for="opt in sportOptions" :key="opt.value" :value="opt.value">
+                {{ opt.icon }} {{ opt.label }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Logo del Club</label>
             <div class="file-upload-container">
               <input 
@@ -147,6 +160,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { getSportIcon } from '../stores/club';
 import { clubsAPI } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 import axios from 'axios';
@@ -164,10 +178,22 @@ const previewImage = ref(null);
 const showConfirmModal = ref(false);
 const clubToDelete = ref(null);
 
+const sportOptions = [
+  { value: 'futbol', label: 'Fútbol', icon: '⚽' },
+  { value: 'futbolito', label: 'Futbolito', icon: '⚽' },
+  { value: 'babyfutbol', label: 'Babyfútbol', icon: '⚽' },
+  { value: 'futsal', label: 'Futsal', icon: '⚽' },
+  { value: 'basquetbol', label: 'Básquetbol', icon: '🏀' },
+  { value: 'voleibol', label: 'Voleibol', icon: '🏐' },
+  { value: 'rugby', label: 'Rugby', icon: '🏉' },
+  { value: 'otro', label: 'Otro', icon: '🎽' },
+];
+
 const form = reactive({
   nombre: '',
   descripcion: '',
-  path_foto: null
+  path_foto: null,
+  deporte: 'futbol'
 });
 
 const notification = reactive({
@@ -240,6 +266,7 @@ const openCreateModal = () => {
     form.nombre = '';
     form.descripcion = '';
     form.path_foto = null;
+    form.deporte = 'futbol';
     selectedFile.value = null;
     previewImage.value = null;
     showCreateModal.value = true;
@@ -305,16 +332,21 @@ const handleSubmit = async () => {
       form.path_foto = imageUrl;
     }
 
-    const userId = authStore.user.value?.id;
-    const clubData = {
-      ...form,
-      owner_id: userId,
-      admin_id: userId // Some backends might use admin_id vs owner_id
-    };
-
     if (isEditing.value) {
-      await clubsAPI.update({ ...clubData, id: editingId.value });
+      await clubsAPI.update({
+        id: editingId.value,
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        path_foto: form.path_foto,
+        deporte: form.deporte
+      });
     } else {
+      const userId = authStore.user.value?.id;
+      const clubData = {
+        ...form,
+        owner_id: userId,
+        admin_id: userId
+      };
       await clubsAPI.create(clubData);
     }
 
@@ -334,6 +366,7 @@ const editClub = (club) => {
   form.nombre = club.nombre;
   form.descripcion = club.descripcion;
   form.path_foto = club.path_foto;
+  form.deporte = club.deporte || 'otro';
   previewImage.value = null; // Reset preview, will show form.path_foto if available
   selectedFile.value = null;
   showCreateModal.value = true;
@@ -359,8 +392,22 @@ const closeModal = () => {
   form.nombre = '';
   form.descripcion = '';
   form.path_foto = null;
+  form.deporte = 'futbol';
   selectedFile.value = null;
   previewImage.value = null;
+};
+
+const getClubIcon = (club) => {
+  const icon = getSportIcon(club?.deporte);
+  if (icon) return icon;
+  const fallback = club?.nombre?.charAt(0);
+  return fallback ? fallback.toUpperCase() : '🏆';
+};
+
+const formatSport = (deporte) => {
+  const value = (deporte || '').toString().trim().toLowerCase();
+  const found = sportOptions.find(o => o.value === value);
+  return found ? `${found.icon} ${found.label}` : '🎽 Otro';
 };
 </script>
 

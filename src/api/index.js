@@ -90,7 +90,14 @@ export const clubsAPI = {
     create: (clubData) => apiClient.post('/clubes', clubData),
     // The following are not explicitly in serverlessClubes.yml but kept for future use
     getById: (id) => apiClient.get(`/clubes/${id}`),
-    update: (clubData) => apiClient.put(`/clubes/${clubData.id}`, clubData),
+    update: (idOrClubData, maybeClubData) => {
+        if (typeof idOrClubData === 'string' || typeof idOrClubData === 'number') {
+            return apiClient.put(`/clubes/${idOrClubData}`, maybeClubData);
+        }
+
+        const { id, ...clubData } = idOrClubData || {};
+        return apiClient.put(`/clubes/${id}`, clubData);
+    },
     delete: (id) => apiClient.delete(`/clubes/${id}`),
 };
 

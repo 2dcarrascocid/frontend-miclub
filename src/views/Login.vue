@@ -7,7 +7,7 @@
             <span class="logo-icon">⚽</span>
           </div>
           <h1>Bienvenido</h1>
-          <p>Inicia sesión en Fair Play Chile</p>
+          <p>Inicia sesión en Fairplay Club</p>
         </div>
 
         <form @submit.prevent="handleLogin" class="auth-form">

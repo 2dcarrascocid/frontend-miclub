@@ -1,21 +1,39 @@
 En el proyecto frontend-miclub, necesito editar el componente clubs.vue, el modal  Editar Club
 
 Funcionalidad:
-- actualizar los datos del club
+- debe mostrar la propiedad deporte en la vista.
+- actualizar los datos del club, la propiedad deporte.
+- debe poder editar la propiedad deporte.
+- debe existir un una lista para un select  
+  'futbol',
+  'futbolito',
+  'babyfutbol',
+  'futsal'
+  'basquetbol',
+  'voleibol',
+  'rugby'
+  'otro'
+ademas se debe crear una funcion que asigne una imagen segun el deporte y sea remplazado dentro de la aplicacion para distinguir el club
+
+'futbol'      → ⚽
+'futbolito'   → ⚽
+'babyfutbol'  → ⚽
+'futsal'      → ⚽
+'basquetbol'  → 🏀
+'voleibol'    → 🏐
+'rugby'       → 🏉
+'otro'        → 🎽
+
+
 json que espera el servicio
 PUT /clubes/{clubId}
 {
   "nombre": "Estrella Verde",
   "descripcion": "Club deportivo...",
-  "path_foto": null
+  "path_foto": null, 
+  "deporte":"futbol"
 }
-para la propiedad path_foto, utilizar npm i cloudinary para subir la imagen a cloudinary y obtener el url de la imagen.
 
-para ello cuento con las variables de entonrno
-VITE_CLOUDINARY_CLOUD_NAME
-VITE_CLOUDINARY_API_KEY
-VITE_CLOUDINARY_API_SECRET
-VITE_CLOUDINARY_URL
 
 Usa el stack: Node.js 20, Serverless Framework v4 y Supabase.
 Implementa la lógica en el handler utilizando la misma logica enterior de los demas endpoints.

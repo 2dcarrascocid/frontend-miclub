@@ -125,7 +125,7 @@
              <h3>Membresía</h3>
              
              <div class="form-group">
-                <label>Mi Club</label>
+                <label>Club</label>
                 <div class="detail-value sm">{{ player.nombre_club.toUpperCase() }}</div>
              </div>
            </div>

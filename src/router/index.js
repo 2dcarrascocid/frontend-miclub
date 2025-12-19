@@ -9,6 +9,7 @@ const Players = () => import('../views/Players.vue');
 const Clubs = () => import('../views/Clubs.vue');
 const Profile = () => import('../views/Profile.vue');
 const Finance = () => import('../views/Finance.vue');
+const ErrorView = () => import('../views/ErrorView.vue');
 
 const routes = [
     {
@@ -80,6 +81,19 @@ const routes = [
         name: 'Profile',
         component: Profile,
         meta: { requiresAuth: true },
+    },
+    {
+        path: '/error',
+        name: 'Error',
+        component: ErrorView,
+        meta: { requiresAuth: false },
+    },
+    {
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: ErrorView,
+        props: { statusCode: 404 },
+        meta: { requiresAuth: false },
     },
 ];
 

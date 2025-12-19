@@ -2,6 +2,17 @@ import { reactive, computed } from 'vue';
 import { clubsAPI } from '../api';
 import { useAuthStore } from './auth';
 
+export const getSportIcon = (deporte) => {
+    const sport = (deporte || '').toString().trim().toLowerCase();
+
+    if (sport === 'basquetbol') return '🏀';
+    if (sport === 'voleibol') return '🏐';
+    if (sport === 'rugby') return '🏉';
+    if (sport === 'futbol' || sport === 'futbolito' || sport === 'babyfutbol' || sport === 'futsal') return '⚽';
+
+    return '🎽';
+};
+
 const state = reactive({
     clubs: (() => {
         try {
@@ -15,7 +26,16 @@ const state = reactive({
             return [];
         }
     })(),
-    selectedClub: JSON.parse(localStorage.getItem('selectedClub')) || null,
+    selectedClub: (() => {
+        try {
+            const stored = localStorage.getItem('selectedClub');
+            if (!stored || stored === 'undefined') return null;
+            return JSON.parse(stored);
+        } catch (e) {
+            console.error('Error parsing selectedClub', e);
+            return null;
+        }
+    })(),
     loading: false,
     error: null,
 });
@@ -60,7 +80,8 @@ export const useClubStore = () => {
     };
 
     const setSelectedClub = (club) => {
-        state.selectedClub = club;
+        console.log('🔍 Selected club set:', club);
+        state.selectedClub = club || null;
         if (club) {
             localStorage.setItem('selectedClub', JSON.stringify(club));
         } else {
