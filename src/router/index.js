@@ -29,6 +29,12 @@ const routes = [
         meta: { requiresAuth: false, hideForAuth: true },
     },
     {
+        path: '/verify-account',
+        name: 'VerifyAccount',
+        component: () => import('../views/VerifyAccount.vue'),
+        meta: { requiresAuth: false, hideForAuth: true },
+    },
+    {
         path: '/dashboard',
         name: 'Dashboard',
         component: Dashboard,

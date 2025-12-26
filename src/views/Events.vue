@@ -133,11 +133,12 @@
             <label>Título</label>
             <input 
               v-model="newEvent.titulo" 
-              required 
               type="text" 
               placeholder="Ej: Asado fin de año"
               class="form-input"
+              :class="{ 'error-border': errors.titulo }"
             >
+            <span v-if="errors.titulo" class="form-error">{{ errors.titulo }}</span>
           </div>
           
           <div class="form-group">
@@ -146,7 +147,9 @@
               v-model="newEvent.descripcion" 
               rows="3"
               class="form-textarea"
+              :class="{ 'error-border': errors.descripcion }"
             ></textarea>
+            <span v-if="errors.descripcion" class="form-error">{{ errors.descripcion }}</span>
           </div>
 
           <div class="form-row">
@@ -163,22 +166,35 @@
               <label>Costo Unitario</label>
               <input 
                 v-model.number="newEvent.costo_unitario" 
-                required 
                 type="number" 
                 min="0"
                 class="form-input"
+                :class="{ 'error-border': errors.costo_unitario }"
               >
+              <span v-if="errors.costo_unitario" class="form-error">{{ errors.costo_unitario }}</span>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label>Fecha Evento</label>
-              <input v-model="newEvent.fecha_evento" required type="date" class="form-input">
+              <input 
+                v-model="newEvent.fecha_evento" 
+                type="date" 
+                class="form-input"
+                :class="{ 'error-border': errors.fecha_evento }"
+              >
+              <span v-if="errors.fecha_evento" class="form-error">{{ errors.fecha_evento }}</span>
             </div>
             <div class="form-group">
               <label>Fecha Límite Pago</label>
-              <input v-model="newEvent.fecha_limite_pago" required type="date" class="form-input">
+              <input 
+                v-model="newEvent.fecha_limite_pago" 
+                type="date" 
+                class="form-input"
+                :class="{ 'error-border': errors.fecha_limite_pago }"
+              >
+              <span v-if="errors.fecha_limite_pago" class="form-error">{{ errors.fecha_limite_pago }}</span>
             </div>
           </div>
 
@@ -249,6 +265,76 @@ const newEvent = ref({
   fecha_limite_pago: ''
 });
 
+const errors = reactive({
+  titulo: '',
+  fecha_evento: '',
+  fecha_limite_pago: '',
+  costo_unitario: '',
+  descripcion: ''
+});
+
+const validateForm = () => {
+  let isValid = true;
+  Object.keys(errors).forEach(key => errors[key] = '');
+
+  // Nombre Evento (Título)
+  if (!newEvent.value.titulo || !newEvent.value.titulo.trim()) {
+    errors.titulo = 'El nombre del evento es obligatorio';
+    isValid = false;
+  } else if (!/^[a-zA-Z0-9\s\u00C0-\u00FF]+$/.test(newEvent.value.titulo)) {
+    errors.titulo = 'Solo se permiten letras, espacios y números';
+    isValid = false;
+  }
+
+  // Fecha Evento
+  if (!newEvent.value.fecha_evento) {
+    errors.fecha_evento = 'La fecha del evento es obligatoria';
+    isValid = false;
+  } else if (isNaN(new Date(newEvent.value.fecha_evento).getTime())) {
+    errors.fecha_evento = 'Fecha inválida';
+    isValid = false;
+  }
+
+  // Fecha Límite Pago
+  if (!newEvent.value.fecha_limite_pago) {
+    errors.fecha_limite_pago = 'La fecha límite de pago es obligatoria';
+    isValid = false;
+  } else {
+    const fechaLimite = new Date(newEvent.value.fecha_limite_pago);
+    const fechaEvento = new Date(newEvent.value.fecha_evento);
+    
+    if (isNaN(fechaLimite.getTime())) {
+      errors.fecha_limite_pago = 'Fecha inválida';
+      isValid = false;
+    } else if (newEvent.value.fecha_evento && fechaLimite < fechaEvento) {
+      errors.fecha_limite_pago = 'La fecha límite no puede ser inferior a la fecha del evento';
+      isValid = false;
+    }
+  }
+
+  // Costo Unitario
+  if (newEvent.value.costo_unitario === null || newEvent.value.costo_unitario === '') {
+    // Optional? User said "validar solo numeros enteros positivos". Implicitly required?
+    // Code has "required" attribute. So yes.
+    errors.costo_unitario = 'El costo es obligatorio';
+    isValid = false;
+  } else if (!Number.isInteger(Number(newEvent.value.costo_unitario)) || Number(newEvent.value.costo_unitario) <= 0) {
+    errors.costo_unitario = 'Debe ser un número entero positivo';
+    isValid = false;
+  }
+
+  // Descripción
+  if (newEvent.value.descripcion && newEvent.value.descripcion.length > 255) {
+    errors.descripcion = 'La descripción no puede exceder 255 caracteres';
+    isValid = false;
+  } else if (newEvent.value.descripcion && !/^[a-zA-Z0-9\s\u00C0-\u00FF]+$/.test(newEvent.value.descripcion)) {
+    errors.descripcion = 'Solo se permiten letras, espacios, números y tildes';
+    isValid = false;
+  }
+
+  return isValid;
+};
+
 const loadClubs = async () => {
   try {
     const userId = authStore.user.value?.id;
@@ -296,6 +382,7 @@ watch(selectedClubId, (newId) => {
 
 const createEvent = async () => {
   if (!selectedClubId.value) return;
+  if (!validateForm()) return;
 
   creating.value = true;
   try {

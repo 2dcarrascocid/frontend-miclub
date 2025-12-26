@@ -38,7 +38,8 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Título</label>
-            <input v-model="form.titulo" :disabled="isClosed" type="text">
+            <input v-model="form.titulo" :disabled="isClosed" type="text" :class="{ 'error-border': errors.titulo }">
+            <span v-if="errors.titulo" class="form-error">{{ errors.titulo }}</span>
           </div>
           <div class="form-group">
             <label>Tipo</label>
@@ -51,19 +52,23 @@
           </div>
           <div class="form-group full-width">
             <label>Descripción</label>
-            <textarea v-model="form.descripcion" :disabled="isClosed" rows="2"></textarea>
+            <textarea v-model="form.descripcion" :disabled="isClosed" rows="2" :class="{ 'error-border': errors.descripcion }"></textarea>
+            <span v-if="errors.descripcion" class="form-error">{{ errors.descripcion }}</span>
           </div>
           <div class="form-group">
             <label>Fecha Evento</label>
-            <input v-model="form.fecha_evento" :disabled="isClosed" type="date">
+            <input v-model="form.fecha_evento" :disabled="isClosed" type="date" :class="{ 'error-border': errors.fecha_evento }">
+            <span v-if="errors.fecha_evento" class="form-error">{{ errors.fecha_evento }}</span>
           </div>
           <div class="form-group">
             <label>Fecha Límite Pago</label>
-            <input v-model="form.fecha_limite_pago" :disabled="isClosed" type="date">
+            <input v-model="form.fecha_limite_pago" :disabled="isClosed" type="date" :class="{ 'error-border': errors.fecha_limite_pago }">
+            <span v-if="errors.fecha_limite_pago" class="form-error">{{ errors.fecha_limite_pago }}</span>
           </div>
           <div class="form-group">
             <label>Costo Unitario</label>
-            <input v-model.number="form.costo_unitario" :disabled="isClosed" type="number">
+            <input v-model.number="form.costo_unitario" :disabled="isClosed" type="number" :class="{ 'error-border': errors.costo_unitario }">
+            <span v-if="errors.costo_unitario" class="form-error">{{ errors.costo_unitario }}</span>
           </div>
         </div>
         
@@ -100,8 +105,8 @@
         <table>
           <thead>
             <tr>
-              <th>Nombre</th>
               <th>N°</th>
+              <th>Nombre</th>
               <th>Estado Pago</th>
               <th>Monto</th>
               <th>Cumplimiento</th>
@@ -110,8 +115,8 @@
           </thead>
           <tbody>
             <tr v-for="player in event.jugadores" :key="player.jugador_id">
-              <td>{{ player.nombre }}</td>
               <td>{{ player.numero_jugador }}</td>
+              <td>{{ player.nombre }}</td>
               <td>
                 <span :class="['payment-badge', player.estado_pago]">
                   {{ player.estado_pago }}
@@ -191,9 +196,10 @@
     <!-- Confirm Add Player -->
     <div v-if="selectedPlayer" class="modal-overlay">
       <div class="modal-content small">
-        <h3>Inscribir a {{ selectedPlayer.nombre_completo }}</h3>
+        <h3>Inscribir a :</h3>
+        <h4>{{ selectedPlayer.nombre_completo }}</h4>
         <div class="form-group">
-          <label>Número Jugador (Opcional)</label>
+          <label>Número Camiseta (Opcional)</label>
           <input v-model="newPlayerNumber" type="number">
         </div>
         <div class="modal-actions">
@@ -239,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useClubStore } from '../stores/club';
 import { eventsAPI, playersAPI } from '../api';
@@ -262,6 +268,75 @@ const confirmation = ref({
 
 // Forms
 const form = ref({});
+const errors = reactive({
+  titulo: '',
+  fecha_evento: '',
+  fecha_limite_pago: '',
+  costo_unitario: '',
+  descripcion: ''
+});
+
+const validateForm = () => {
+  let isValid = true;
+  Object.keys(errors).forEach(key => errors[key] = '');
+
+  // Nombre Evento (Título)
+  if (!form.value.titulo || !form.value.titulo.trim()) {
+    errors.titulo = 'El nombre del evento es obligatorio';
+    isValid = false;
+  } else if (!/^[a-zA-Z0-9\s\u00C0-\u00FF]+$/.test(form.value.titulo)) {
+    errors.titulo = 'Solo se permiten letras, espacios y números';
+    isValid = false;
+  }
+
+  // Fecha Evento
+  if (!form.value.fecha_evento) {
+    errors.fecha_evento = 'La fecha del evento es obligatoria';
+    isValid = false;
+  } else if (isNaN(new Date(form.value.fecha_evento).getTime())) {
+    errors.fecha_evento = 'Fecha inválida';
+    isValid = false;
+  }
+
+  // Fecha Límite Pago
+  if (!form.value.fecha_limite_pago) {
+    errors.fecha_limite_pago = 'La fecha límite de pago es obligatoria';
+    isValid = false;
+  } else {
+    const fechaLimite = new Date(form.value.fecha_limite_pago);
+    const fechaEvento = new Date(form.value.fecha_evento);
+    
+    if (isNaN(fechaLimite.getTime())) {
+      errors.fecha_limite_pago = 'Fecha inválida';
+      isValid = false;
+    } else if (form.value.fecha_evento && fechaLimite < fechaEvento) {
+      errors.fecha_limite_pago = 'La fecha límite no puede ser inferior a la fecha del evento';
+      isValid = false;
+    }
+  }
+
+  // Costo Unitario
+  if (form.value.costo_unitario === null || form.value.costo_unitario === '') {
+     // Optional check if required by business logic, assuming yes based on prompt context
+     errors.costo_unitario = 'El costo es obligatorio';
+     isValid = false;
+  } else if (!Number.isInteger(Number(form.value.costo_unitario)) || Number(form.value.costo_unitario) <= 0) {
+    errors.costo_unitario = 'Debe ser un número entero positivo';
+    isValid = false;
+  }
+
+  // Descripción
+  if (form.value.descripcion && form.value.descripcion.length > 255) {
+    errors.descripcion = 'La descripción no puede exceder 255 caracteres';
+    isValid = false;
+  } else if (form.value.descripcion && !/^[a-zA-Z0-9\s\u00C0-\u00FF]+$/.test(form.value.descripcion)) {
+    errors.descripcion = 'Solo se permiten letras, espacios, números y tildes';
+    isValid = false;
+  }
+
+  return isValid;
+};
+
 const playerSearch = ref('');
 const showAddPlayerModal = ref(false);
 const selectedPlayer = ref(null);
@@ -318,6 +393,11 @@ watch(playerSearch, (newVal) => {
 
 // Actions
 const updateEvent = async () => {
+  if (!validateForm()) {
+    showNotification('error', 'Por favor corrija los errores en el formulario');
+    return;
+  }
+  
   updating.value = true;
   try {
     await eventsAPI.update(clubId.value, event.value.id, form.value);

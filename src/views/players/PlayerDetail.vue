@@ -43,7 +43,8 @@
                <h1 v-if="!isEditing">{{ player.nombre_completo }}</h1>
                <div v-else class="form-group mb-0">
                  <label>Nombre Completo</label>
-                 <input type="text" v-model="form.nombre_completo" class="form-input" />
+                 <input type="text" v-model="form.nombre_completo" class="form-input" :class="{ 'error-border': errors.nombre_completo }" />
+                 <span v-if="errors.nombre_completo" class="form-error">{{ errors.nombre_completo }}</span>
                </div>
                
                <div class="badges mt-1">
@@ -87,19 +88,28 @@
              <div class="form-group">
                <label>Folio</label>
                <div v-if="!isEditing" class="detail-value">{{ player.folio || 'N/A' }}</div>
-               <input v-else type="number" v-model.number="form.folio" class="form-input" placeholder="Folio" />
+               <div v-else>
+                 <input type="number" v-model.number="form.folio" class="form-input" :class="{ 'error-border': errors.folio }" placeholder="Folio" />
+                 <span v-if="errors.folio" class="form-error">{{ errors.folio }}</span>
+               </div>
              </div>
 
              <div class="form-group">
                <label>RUT</label>
                <div v-if="!isEditing" class="detail-value">{{ player.rut }}</div>
-               <input v-else type="text" v-model="form.rut" class="form-input" />
+               <div v-else>
+                 <input type="text" v-model="form.rut" class="form-input" :class="{ 'error-border': errors.rut }" />
+                 <span v-if="errors.rut" class="form-error">{{ errors.rut }}</span>
+               </div>
              </div>
 
              <div class="form-group">
                <label>Fecha de Nacimiento</label>
                <div v-if="!isEditing" class="detail-value">{{ formatDate(player.fecha_nacimiento) }} ({{ calculateAge(player.fecha_nacimiento) }} años)</div>
-               <input v-else type="date" v-model="form.fecha_nacimiento" class="form-input" />
+               <div v-else>
+                 <input type="date" v-model="form.fecha_nacimiento" class="form-input" :class="{ 'error-border': errors.fecha_nacimiento }" />
+                 <span v-if="errors.fecha_nacimiento" class="form-error">{{ errors.fecha_nacimiento }}</span>
+               </div>
              </div>
            </div>
 
@@ -116,7 +126,10 @@
              <div class="form-group">
                <label>Teléfono</label>
                <div v-if="!isEditing" class="detail-value">{{ player.telefono }}</div>
-               <input v-else type="tel" v-model="form.telefono" class="form-input" />
+               <div v-else>
+                 <input type="tel" v-model="form.telefono" class="form-input" :class="{ 'error-border': errors.telefono }" />
+                 <span v-if="errors.telefono" class="form-error">{{ errors.telefono }}</span>
+               </div>
              </div>
            </div>
 
@@ -185,7 +198,96 @@ const form = reactive({
     folio: ''
 });
 
+const errors = reactive({
+    nombre_completo: '',
+    rut: '',
+    fecha_nacimiento: '',
+    telefono: '',
+    folio: ''
+});
+
 const isEditing = ref(false);
+
+// Validation Helpers
+const validateRutChileno = (rut) => {
+    if (!rut) return false;
+    const cleanRut = rut.replace(/[^0-9kK]/g, '');
+    if (cleanRut.length < 2) return false;
+    
+    const body = cleanRut.slice(0, -1);
+    const dv = cleanRut.slice(-1).toUpperCase();
+    
+    if (!/^\d+$/.test(body)) return false;
+    
+    let sum = 0;
+    let multiplier = 2;
+    
+    for (let i = body.length - 1; i >= 0; i--) {
+        sum += parseInt(body[i]) * multiplier;
+        multiplier = multiplier === 7 ? 2 : multiplier + 1;
+    }
+    
+    const mod = 11 - (sum % 11);
+    const calculatedDv = mod === 11 ? '0' : mod === 10 ? 'K' : String(mod);
+    
+    return dv === calculatedDv;
+};
+
+const validateForm = () => {
+    let isValid = true;
+    // Reset errors
+    Object.keys(errors).forEach(key => errors[key] = '');
+
+    // Nombre Completo: no vacio, solo letras y espacios
+    if (!form.nombre_completo || !form.nombre_completo.trim()) {
+        errors.nombre_completo = 'El nombre es obligatorio';
+        isValid = false;
+    } else if (!/^[a-zA-Z\s\u00C0-\u00FF]+$/.test(form.nombre_completo)) {
+        errors.nombre_completo = 'Solo se permiten letras y espacios';
+        isValid = false;
+    }
+
+    // RUT: no vacio, validacion chileno
+    if (!form.rut || !form.rut.trim()) {
+        errors.rut = 'El RUT es obligatorio';
+        isValid = false;
+    } else if (!validateRutChileno(form.rut)) {
+        errors.rut = 'RUT inválido (Ej: 12345678-9)';
+        isValid = false;
+    }
+
+    // Telefono: no vacio, solo numeros y guion
+    if (!form.telefono || !form.telefono.trim()) {
+        errors.telefono = 'El teléfono es obligatorio';
+        isValid = false;
+    } else if (!/^[0-9-]+$/.test(form.telefono)) {
+        errors.telefono = 'Solo se permiten números y guiones';
+        isValid = false;
+    }
+
+    // Fecha Nacimiento: no vacio, fecha valida
+    if (!form.fecha_nacimiento) {
+        errors.fecha_nacimiento = 'La fecha es obligatoria';
+        isValid = false;
+    } else {
+        const date = new Date(form.fecha_nacimiento);
+        if (isNaN(date.getTime())) {
+            errors.fecha_nacimiento = 'Fecha inválida';
+            isValid = false;
+        }
+    }
+
+    // Folio: entero mayor que cero
+    if (form.folio === null || form.folio === '') {
+        errors.folio = 'El folio es obligatorio';
+        isValid = false;
+    } else if (!Number.isInteger(Number(form.folio)) || Number(form.folio) <= 0) {
+        errors.folio = 'Debe ser un número entero mayor que cero';
+        isValid = false;
+    }
+
+    return isValid;
+};
 
 // Modal State
 const modalState = reactive({
@@ -295,11 +397,13 @@ const loadPlayer = async () => {
 
 const toggleEdit = () => {
     populateForm(); // Asegurar que el form tenga los datos actuales antes de editar
+    Object.keys(errors).forEach(key => errors[key] = ''); // Limpiar errores
     isEditing.value = true;
 };
 
 const cancelEdit = () => {
     isEditing.value = false;
+    Object.keys(errors).forEach(key => errors[key] = ''); // Limpiar errores
     // Reset form
     populateForm();
 };
@@ -313,6 +417,11 @@ onMounted(() => {
 });
 
 const saveChanges = async () => {
+  if (!validateForm()) {
+      showFeedback('Por favor corrija los errores en el formulario', 'error');
+      return;
+  }
+
   confirmAction(
     'Confirmar Cambios',
     '¿Estás seguro de que deseas guardar los cambios realizados?',
@@ -631,5 +740,10 @@ const getCategoryClass = (birthDate) => {
   background: rgba(239, 68, 68, 0.2);
   color: #f87171;
   border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.error-border {
+    border-color: var(--accent-red) !important;
+    box-shadow: 0 0 0 1px var(--accent-red) !important;
 }
 </style>

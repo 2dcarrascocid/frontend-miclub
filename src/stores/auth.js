@@ -81,35 +81,38 @@ export const useAuthStore = () => {
         state.error = null;
 
         try {
-
-
             const response = await authAPI.register(userData);
 
-            const { usuario, tokens, clubes } = response.data;
-            const user = usuario;
-            const accessToken = tokens.access_token;
-            const refreshToken = tokens.refresh_token;
-            const sessionId = tokens.session_id;
+            // Si el backend devuelve tokens, hacemos auto-login (flujo antiguo o opcional)
+            if (response.data.tokens) {
+                const { usuario, tokens, clubes } = response.data;
+                const user = usuario;
+                const accessToken = tokens.access_token;
+                const refreshToken = tokens.refresh_token;
+                const sessionId = tokens.session_id;
 
-            // Guardar en localStorage
-            localStorage.setItem('user', JSON.stringify(user));
-            localStorage.setItem('accessToken', accessToken);
-            localStorage.setItem('refreshToken', refreshToken);
-            localStorage.setItem('sessionId', sessionId);
-            if (clubes && clubes.length > 0) {
-                localStorage.setItem('userClubs', JSON.stringify(clubes));
+                // Guardar en localStorage
+                localStorage.setItem('user', JSON.stringify(user));
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', refreshToken);
+                localStorage.setItem('sessionId', sessionId);
+                if (clubes && clubes.length > 0) {
+                    localStorage.setItem('userClubs', JSON.stringify(clubes));
+                }
+
+                // Actualizar estado
+                state.user = user;
+                state.accessToken = accessToken;
+                state.refreshToken = refreshToken;
+                state.sessionId = sessionId;
+                state.isAuthenticated = true;
+                state.userClubs = clubes;
             }
-
-            // Actualizar estado
-            state.user = user;
-            state.accessToken = accessToken;
-            state.refreshToken = refreshToken;
-            state.sessionId = sessionId;
-            state.isAuthenticated = true;
-
+            
+            // Retornamos la respuesta completa para que el componente decida qué hacer
             return response.data;
         } catch (error) {
-            state.error = error.response?.data?.message || 'Error al registrarse';
+            state.error = error.response?.data?.message || 'Error al crear cuenta';
             throw error;
         } finally {
             state.loading = false;

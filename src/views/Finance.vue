@@ -18,14 +18,6 @@
             <!-- <button class="btn btn-outline" @click="showCloseMonthModal = true" :disabled="!selectedClubId">
               📅 Cerrar Mes
             </button> -->
-            <button 
-              class="btn btn-secondary" 
-              @click="showBatchUpload = !showBatchUpload" 
-              :disabled="!selectedClubId"
-              :class="{ active: showBatchUpload }"
-            >
-              📊 {{ showBatchUpload ? 'Ver Lista' : 'Crear Planilla' }}
-            </button>
             <button v-if="!showBatchUpload" class="btn btn-primary" @click="showCreateModal = true" :disabled="!selectedClubId">
               ➕ Nuevo Movimiento
             </button>

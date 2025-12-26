@@ -82,6 +82,7 @@ export const authAPI = {
     googleLogin: (googleData) => apiClient.post('/auth/google', googleData),
     getProfile: () => apiClient.get('/auth/profile'),
     updateProfile: (data) => apiClient.put('/auth/profile', data),
+    verifyAccount: (token) => apiClient.get(`/auth/verify?token=${token}`),
 };
 
 // ==================== CLUBS API ====================

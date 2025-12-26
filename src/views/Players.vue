@@ -115,7 +115,10 @@
                   </div>
                   <span class="player-name">{{ player.nombre_completo }}</span>
                 </div>
-                <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👤</button>
+                <div class="action-buttons">
+                  <button class="btn-icon" @click="editPlayer(player)" title="Editar Jugador">✏️</button>
+                  <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👤</button>
+                </div>
               </div>
               
               <div class="player-card-body">
@@ -194,7 +197,9 @@
           placeholder="Ej: Alexis Sánchez"
           required
           class="form-input"
+          :class="{ 'input-error': errors.nombre_completo }"
         />
+        <span v-if="errors.nombre_completo" class="error-message">{{ errors.nombre_completo }}</span>
       </div>
 
       <!-- Folio -->
@@ -206,7 +211,9 @@
           placeholder="Ej: 123"
           min="1"
           class="form-input"
+          :class="{ 'input-error': errors.folio }"
         />
+        <span v-if="errors.folio" class="error-message">{{ errors.folio }}</span>
       </div>
 
       <!-- RUT + Fecha -->
@@ -216,9 +223,11 @@
           <input
             type="text"
             v-model="form.rut"
-            placeholder="12.345.678-9"
+            placeholder="12345678-9"
             class="form-input"
+            :class="{ 'input-error': errors.rut }"
           />
+          <span v-if="errors.rut" class="error-message">{{ errors.rut }}</span>
         </div>
 
         <div class="form-group">
@@ -227,7 +236,9 @@
             type="date"
             v-model="form.fecha_nacimiento"
             class="form-input"
+            :class="{ 'input-error': errors.fecha_nacimiento }"
           />
+          <span v-if="errors.fecha_nacimiento" class="error-message">{{ errors.fecha_nacimiento }}</span>
         </div>
       </div>
 
@@ -240,7 +251,9 @@
             v-model="form.email"
             placeholder="jugador@email.com"
             class="form-input"
+            :class="{ 'input-error': errors.email }"
           />
+          <span v-if="errors.email" class="error-message">{{ errors.email }}</span>
         </div>
 
         <div class="form-group">
@@ -248,9 +261,11 @@
           <input
             type="tel"
             v-model="form.telefono"
-            placeholder="+56 9 1234 5678"
+            placeholder="+56 9 1234-5678"
             class="form-input"
+            :class="{ 'input-error': errors.telefono }"
           />
+          <span v-if="errors.telefono" class="error-message">{{ errors.telefono }}</span>
         </div>
       </div>
 
@@ -340,6 +355,110 @@ const form = reactive({
   usuario_id: null,
   folio: null
 });
+
+const errors = reactive({
+  nombre_completo: '',
+  rut: '',
+  telefono: '',
+  fecha_nacimiento: '',
+  folio: '',
+  email: ''
+});
+
+const validateRut = (rut) => {
+  if (!rut) return false;
+  // Limpiar puntos y guión para validación flexible si se quisiera, pero el usuario pidió "números y guion"
+  // El regex /^[0-9]+-[0-9kK]{1}$/ fuerza el formato sin puntos.
+  if (!/^[0-9]+-[0-9kK]{1}$/.test(rut)) return false;
+  
+  const [body, dv] = rut.split('-');
+  let suma = 0;
+  let multiplo = 2;
+  
+  for (let i = body.length - 1; i >= 0; i--) {
+    suma += multiplo * parseInt(body.charAt(i));
+    multiplo = multiplo < 7 ? multiplo + 1 : 2;
+  }
+  
+  const dvEsperado = 11 - (suma % 11);
+  const dvCalculado = (dvEsperado === 11) ? '0' : ((dvEsperado === 10) ? 'k' : dvEsperado.toString());
+  
+  return dvCalculado === dv.toLowerCase();
+};
+
+const validateForm = () => {
+  let isValid = true;
+  // Reset errors
+  Object.keys(errors).forEach(key => errors[key] = '');
+
+  // Nombre Completo: no vacio, solo letras y espacios
+  if (!form.nombre_completo.trim()) {
+    errors.nombre_completo = 'El nombre es obligatorio';
+    isValid = false;
+  } else if (!/^[a-zA-Z\s\u00C0-\u00FF]+$/.test(form.nombre_completo)) {
+     errors.nombre_completo = 'Solo se permiten letras y espacios';
+     isValid = false;
+  }
+
+  // RUT: no vacio, numeros y guion, validacion chileno
+  if (!form.rut.trim()) {
+    errors.rut = 'El RUT es obligatorio';
+    isValid = false;
+  } else if (!validateRut(form.rut)) {
+    errors.rut = 'RUT inválido (Ej: 12345678-9)';
+    isValid = false;
+  }
+
+  // Telefono: no vacio, solo numeros y guion
+  if (!form.telefono.trim()) {
+    errors.telefono = 'El teléfono es obligatorio';
+    isValid = false;
+  } else if (!/^[0-9-]+$/.test(form.telefono)) {
+    errors.telefono = 'Solo se permiten números y guiones';
+    isValid = false;
+  }
+
+  // Fecha Nacimiento: no vacio, fecha valida, no futura
+  if (!form.fecha_nacimiento) {
+    errors.fecha_nacimiento = 'La fecha de nacimiento es obligatoria';
+    isValid = false;
+  } else {
+     const date = new Date(form.fecha_nacimiento);
+     const today = new Date();
+     // Reset hours to compare just dates if needed, or just compare objects
+     today.setHours(0, 0, 0, 0);
+     
+     if (isNaN(date.getTime())) {
+        errors.fecha_nacimiento = 'Fecha inválida';
+        isValid = false;
+     } else if (date > today) {
+        errors.fecha_nacimiento = 'La fecha no puede ser futura';
+        isValid = false;
+     }
+  }
+
+  // Email: validación de formato si existe
+  if (form.email && form.email.trim()) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      errors.email = 'Formato de correo inválido';
+      isValid = false;
+    }
+  }
+
+  // Folio: entero mayor que cero
+  // Si está vacío, decidimos si es obligatorio. El prompt dice "el campo folio debe ser numero entero mayor que cero"
+  // Asumiré que es obligatorio dado el contexto de validación estricta.
+  if (form.folio === null || form.folio === '') {
+     errors.folio = 'El folio es obligatorio';
+     isValid = false;
+  } else if (!Number.isInteger(form.folio) || form.folio <= 0) {
+     errors.folio = 'Debe ser un número entero mayor que cero';
+     isValid = false;
+  }
+
+  return isValid;
+};
 
 onMounted(async () => {
   await loadClubs();
@@ -466,6 +585,8 @@ const prevPage = () => {
 };
 
 const handleSubmit = async () => {
+  if (!validateForm()) return;
+
   submitting.value = true;
 
   try {
@@ -550,9 +671,12 @@ const resetForm = () => {
   form.email = '';
   form.telefono = '';
   form.fecha_nacimiento = '';
+  form.folio = null;
   form.es_socio = false;
   form.es_jugador = false;
   form.usuario_id = null;
+  
+  Object.keys(errors).forEach(key => errors[key] = '');
 };
 
 const getInitials = (name) => {
@@ -604,68 +728,81 @@ const getCategoryStyle = (birthDate) => {
 
 <style scoped>
 .players-page {
-  min-height: 100vh;
-  padding: var(--spacing-2xl) 0;
-  background: var(--bg-primary);
+  padding-bottom: 2rem;
 }
 
 .page-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-2xl);
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-top: 2rem;
   flex-wrap: wrap;
-  gap: var(--spacing-lg);
-}
-
-.page-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: var(--spacing-xs);
-  background: var(--primary-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  gap: 1rem;
 }
 
 .inline {
   display: inline-block;
-  margin: 0;
-}
-
-.page-header p {
-  color: var(--text-muted);
-  margin: 0;
+  margin-right: 0.5rem;
 }
 
 .header-actions {
   display: flex;
-  gap: var(--spacing-md);
+  gap: 1rem;
   align-items: center;
 }
 
 .club-select {
-  padding: 0.75rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  padding: 0.5rem;
   border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   min-width: 200px;
 }
 
-/* Table Styles */
-.table-responsive {
-  background: var(--bg-card);
-  border-radius: var(--radius-xl);
+/* Category Tabs */
+.category-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.tab-btn {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-color);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: var(--spacing-lg);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--primary-light);
+  color: white;
+  border-color: var(--primary-light);
+}
+
+/* Table */
+.table-responsive {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
 }
 
 .players-table {
   width: 100%;
   border-collapse: collapse;
-  color: var(--text-primary);
+  background: var(--bg-card);
 }
 
 .players-table th,
@@ -676,12 +813,12 @@ const getCategoryStyle = (birthDate) => {
 }
 
 .players-table th {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-secondary);
   font-weight: 600;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
 }
 
 .players-table tr:last-child td {
@@ -689,19 +826,13 @@ const getCategoryStyle = (birthDate) => {
 }
 
 .players-table tr:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-hover);
 }
 
 .player-name-cell {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-weight: 500;
-}
-
-.player-name {
-  font-weight: 600;
-  color: var(--text-primary);
 }
 
 .player-avatar-small {
@@ -712,95 +843,28 @@ const getCategoryStyle = (birthDate) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  flex-shrink: 0;
-}
-
-/* Mobile Cards Styles */
-.mobile-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
-}
-
-.player-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-md);
-  box-shadow: var(--shadow-sm);
-}
-
-.player-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-md);
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.player-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.card-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
-}
-
-.card-row .label {
-  color: var(--text-secondary);
-}
-
-.card-row .value {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.status-icons {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 1.2rem;
+  color: white;
 }
 
 .action-buttons {
   display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 0.5rem;
 }
 
 .btn-icon {
-  background: none;
+  background: transparent;
   border: none;
   cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+  font-size: 1.25rem;
   padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
 }
 
 .btn-icon:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-/* Badges */
-.badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  border: 1px solid transparent;
+  background: var(--bg-tertiary);
 }
 
 /* Pagination */
@@ -809,18 +873,16 @@ const getCategoryStyle = (birthDate) => {
   justify-content: center;
   align-items: center;
   gap: 1rem;
-  padding: 1rem;
-  border-top: 1px solid var(--border-color);
+  margin-top: 2rem;
 }
 
 .btn-page {
   padding: 0.5rem 1rem;
-  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
   color: var(--text-primary);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .btn-page:disabled {
@@ -828,17 +890,31 @@ const getCategoryStyle = (birthDate) => {
   cursor: not-allowed;
 }
 
-.btn-page:not(:disabled):hover {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+.btn-page:hover:not(:disabled) {
+  background: var(--bg-tertiary);
 }
 
 .page-info {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
-/* Modal Styles */
+/* Empty State */
+.empty-state, .loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  border: 2px dashed var(--border-color);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -850,161 +926,123 @@ const getCategoryStyle = (birthDate) => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1rem;
   backdrop-filter: blur(4px);
 }
 
 .modal-content {
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  padding: 2rem;
   border-radius: var(--radius-xl);
-  padding: var(--spacing-xl);
   width: 100%;
-  max-width: 500px;
-  animation: slideUp 0.3s ease-out;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-2xl);
+  border: 1px solid var(--border-color);
+  animation: fadeIn 0.3s ease-out;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: 2rem;
 }
 
 .close-btn {
-  background: none;
+  background: transparent;
   border: none;
-  font-size: 2rem;
   color: var(--text-muted);
+  font-size: 2rem;
   cursor: pointer;
+  line-height: 1;
 }
 
-.form-group {
-  margin-bottom: var(--spacing-lg);
+.close-btn:hover {
+  color: var(--text-primary);
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-lg);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: var(--spacing-xs);
-  color: var(--text-secondary);
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-}
-
-.checkboxes {
-  display: flex;
-  gap: 1.5rem;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  color: var(--text-primary);
+  gap: 1rem;
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-xl);
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
 }
 
-.loading-state, .empty-state {
-  text-align: center;
-  padding: var(--spacing-2xl);
-  color: var(--text-muted);
+/* Error Styles */
+.input-error {
+  border-color: var(--accent-red) !important;
 }
 
-.empty-icon {
-  font-size: 4rem;
-  display: block;
-  margin-bottom: var(--spacing-md);
-  opacity: 0.5;
-}
-
-/* Responsive Utilities */
-.mobile-only {
-  display: none;
-}
-
-.desktop-only {
+.form-error {
+  color: var(--accent-red);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
   display: block;
 }
+
+/* Mobile Cards */
+.mobile-only { display: none; }
+.desktop-only { display: block; }
 
 @media (max-width: 768px) {
-  .mobile-only {
-    display: flex; /* or block depending on container */
-  }
+  .mobile-only { display: block; }
+  .desktop-only { display: none; }
   
-  .desktop-only {
-    display: none;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .form-row {
+    grid-template-columns: 1fr;
   }
   
   .header-actions {
-    width: 100%;
     flex-direction: column;
+    align-items: stretch;
+    width: 100%;
   }
   
   .club-select {
     width: 100%;
   }
-  
-  .pagination {
-    flex-wrap: wrap;
-    gap: 0.5rem;
+
+  .player-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    margin-bottom: 1rem;
   }
-}
 
-/* Category Tabs */
-.category-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: var(--spacing-lg);
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  -webkit-overflow-scrolling: touch;
-}
-
-.tab-btn {
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-}
-
-.tab-btn:hover {
-  border-color: var(--text-primary);
-  color: var(--text-primary);
-}
-
-.tab-btn.active {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-  font-weight: 500;
+  .player-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .card-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .card-row .label {
+    color: var(--text-muted);
+  }
+  
+  .card-row .value {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
 }
 </style>
