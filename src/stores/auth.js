@@ -26,6 +26,16 @@ const state = reactive({
             return [];
         }
     })(),
+    permissions: (() => {
+        try {
+            const stored = localStorage.getItem('userPermissions');
+            if (!stored || stored === 'undefined') return [];
+            return JSON.parse(stored);
+        } catch (e) {
+            localStorage.removeItem('userPermissions');
+            return [];
+        }
+    })(),
     loading: false,
     error: null,
 });
@@ -36,11 +46,9 @@ export const useAuthStore = () => {
         state.error = null;
 
         try {
-
-
             const response = await authAPI.login(credentials);
 
-            const { usuario, tokens, clubes, roles } = response.data;
+            const { usuario, tokens, clubes, roles, permisos } = response.data;
             const user = usuario;
             const accessToken = tokens.access_token;
             const refreshToken = tokens.refresh_token;
@@ -57,6 +65,9 @@ export const useAuthStore = () => {
             if (roles && roles.length > 0) {
                 localStorage.setItem('userRoles', JSON.stringify(roles));
             }
+            if (permisos && permisos.length > 0) {
+                localStorage.setItem('userPermissions', JSON.stringify(permisos));
+            }
 
             // Actualizar estado
             state.user = user;
@@ -66,10 +77,11 @@ export const useAuthStore = () => {
             state.isAuthenticated = true;
             state.userClubs = clubes;
             state.userRoles = roles;
+            state.permissions = permisos || [];
 
             return response.data;
         } catch (error) {
-            state.error = error.response?.data?.message || 'Error al iniciar sesiÃ³n';
+            state.error = error.response?.data?.message || 'Error al iniciar sesión';
             throw error;
         } finally {
             state.loading = false;
@@ -85,7 +97,7 @@ export const useAuthStore = () => {
 
             // Si el backend devuelve tokens, hacemos auto-login (flujo antiguo o opcional)
             if (response.data.tokens) {
-                const { usuario, tokens, clubes } = response.data;
+                const { usuario, tokens, clubes, permisos } = response.data;
                 const user = usuario;
                 const accessToken = tokens.access_token;
                 const refreshToken = tokens.refresh_token;
@@ -99,6 +111,9 @@ export const useAuthStore = () => {
                 if (clubes && clubes.length > 0) {
                     localStorage.setItem('userClubs', JSON.stringify(clubes));
                 }
+                if (permisos && permisos.length > 0) {
+                    localStorage.setItem('userPermissions', JSON.stringify(permisos));
+                }
 
                 // Actualizar estado
                 state.user = user;
@@ -107,9 +122,10 @@ export const useAuthStore = () => {
                 state.sessionId = sessionId;
                 state.isAuthenticated = true;
                 state.userClubs = clubes;
+                state.permissions = permisos || [];
             }
             
-            // Retornamos la respuesta completa para que el componente decida quÃ© hacer
+            // Retornamos la respuesta completa para que el componente decida qué hacer
             return response.data;
         } catch (error) {
             state.error = error.response?.data?.message || 'Error al crear cuenta';
@@ -133,6 +149,7 @@ export const useAuthStore = () => {
             localStorage.removeItem('sessionId');
             localStorage.removeItem('userClubs');
             localStorage.removeItem('userRoles');
+            localStorage.removeItem('userPermissions');
             
             state.user = null;
             state.accessToken = null;
@@ -141,6 +158,7 @@ export const useAuthStore = () => {
             state.isAuthenticated = false;
             state.userClubs = [];
             state.userRoles = [];
+            state.permissions = [];
         }
     };
 

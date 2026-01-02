@@ -3,31 +3,21 @@
     <div class="container navbar-content">
       <div class="navbar-brand">
         <router-link to="/dashboard" class="logo">
-          <span class="logo-icon">{{ clubIcon }}</span>
+            <span class="logo-icon">{{ clubIcon }}</span>
           <span class="logo-text">Fairplay Club</span>
         </router-link>
       </div>
 
       <div class="navbar-menu" :class="{ 'is-active': mobileMenuOpen }">
-        <router-link to="/dashboard" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">🏠</span>
-          Dashboard
-        </router-link>
-        <router-link to="/clubs" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">🏆</span>
-          Clubes
-        </router-link>
-        <router-link to="/players" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">👥</span>
-          Jugadores
-        </router-link>
-        <router-link to="/finance" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">💰</span>
-          Finanzas
-        </router-link>
-        <router-link to="/events" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">📅</span>
-          Eventos
+        <router-link 
+          v-for="item in menuItems"
+          :key="item.ruta"
+          :to="item.ruta" 
+          class="nav-link" 
+          @click="closeMobileMenu"
+        >
+          <span class="nav-icon">{{ item.icono }}</span>
+          {{ item.nombre }}
         </router-link>
       </div>
 
@@ -37,15 +27,18 @@
             {{ userInitials }}
           </div>
           <span class="user-name">{{ userName }}</span>
-          <span class="dropdown-arrow">▼</span>
+          <span class="dropdown-arrow">?</span>
           
           <div class="user-dropdown" v-if="userMenuOpen">
             <router-link to="/profile" class="dropdown-item" @click="closeUserMenu">
               <span>👤</span> Mi Perfil
             </router-link>
+            <router-link to="/membership" class="dropdown-item" @click="closeUserMenu">
+              <span>⭐</span> Membresía
+            </router-link>
             <div class="dropdown-divider"></div>
             <button @click="handleLogout" class="dropdown-item logout">
-              <span>🚪</span> Cerrar Sesión
+               <span>🚪</span> Cerrar Sesión
             </button>
           </div>
         </div>
@@ -75,8 +68,7 @@ const userMenuOpen = ref(false);
 
 const clubIcon = computed(() => {
   const selectedClub = clubStore.selectedClub.value;
-  console.log("selectedClub", selectedClub)
-  return selectedClub ? getSportIcon(selectedClub.deporte) : '🏆';
+  return selectedClub ? getSportIcon(selectedClub.deporte) : '??';
 });
 
 const userName = computed(() => {
@@ -96,25 +88,26 @@ const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value;
 };
 
-const closeMobileMenu = () => {
-  mobileMenuOpen.value = false;
-};
+// Dynamic Menu Items
+const menuItems = computed(() => {
+    return authStore.permissions.value || [];
+});
 
-const toggleUserMenu = () => {
-  userMenuOpen.value = !userMenuOpen.value;
-};
-
+// Close menu when clicking outside (optional enhancement)
 const closeUserMenu = () => {
   userMenuOpen.value = false;
 };
-
-const handleLogout = async () => {
-  await authStore.logout();
-  router.push('/login');
-  closeUserMenu();
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false;
 };
-
-
+const toggleUserMenu = () => {
+    userMenuOpen.value = !userMenuOpen.value;
+};
+const handleLogout = async () => {
+    await authStore.logout();
+    router.push('/login');
+    closeUserMenu();
+};
 </script>
 
 <style scoped>

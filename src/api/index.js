@@ -102,6 +102,18 @@ export const clubsAPI = {
     delete: (id) => apiClient.delete(`/clubes/${id}`),
 };
 
+// ==================== MEMBERSHIP API ====================
+export const membershipAPI = {
+    getPlanes: () => apiClient.get('/planes'),
+    getPlanByCodigo: (codigo) => apiClient.get(`/planes/${codigo}`),
+    getSuscripcion: (clubId) => apiClient.get(`/clubes/${clubId}/suscripcion`),
+    getHistorial: (clubId, params) => apiClient.get(`/clubes/${clubId}/suscripcion/historial`, { params }),
+    solicitarCambio: (clubId, data) => apiClient.post(`/clubes/${clubId}/suscripcion/solicitar-cambio`, data),
+    activarSuscripcion: (clubId, data) => apiClient.post(`/clubes/${clubId}/suscripcion/activar`, data),
+    cancelarSuscripcion: (clubId, data) => apiClient.post(`/clubes/${clubId}/suscripcion/cancelar`, data),
+    getFeatures: (clubId) => apiClient.get(`/clubes/${clubId}/features`),
+};
+
 // ==================== PLAYERS API ====================
 export const playersAPI = {
     // Updated to match /clubes/{clubId}/jugadores

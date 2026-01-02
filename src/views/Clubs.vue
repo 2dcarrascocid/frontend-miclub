@@ -7,7 +7,7 @@
           <h1 class="inline">Mis Clubes</h1>
           <p>Administra tus clubes deportivos</p>
         </div>
-        <button class="btn btn-primary" @click="openCreateModal">
+        <button v-if="clubs.length === 0" class="btn btn-primary" @click="openCreateModal">
           ➕ Nuevo Club
         </button>
       </div>

@@ -12,7 +12,9 @@
           <p class="club-description">{{ club.descripcion }}</p>
         </div>
         <div class="header-actions">
-           <!-- Acciones del club si se requieren -->
+           <router-link to="/membership" class="btn btn-outline" v-if="isFreePlan">
+               ⭐ Mejorar Plan
+           </router-link>
         </div>
       </div>
 
@@ -114,13 +116,19 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { clubsAPI, categoriesAPI } from '../api';
+import { useClubStore } from '../stores/club';
 
 const route = useRoute();
 const router = useRouter();
+const clubStore = useClubStore();
 const clubId = route.params.id;
+
+const isFreePlan = computed(() => {
+    return !clubStore.subscription?.plan || clubStore.subscription?.plan?.tier === 'free';
+});
 
 const club = ref(null);
 const categories = ref([]);
@@ -183,6 +191,14 @@ const loadClubData = async () => {
         club.value = JSON.parse(history.state.clubStr);
     }
     
+    if (club.value) {
+        // Aseguramos que el store tenga este club seleccionado
+        clubStore.setSelectedClub(club.value);
+    } else {
+        // Intentar cargar suscripción de todos modos si tenemos ID
+        await clubStore.loadSubscription(clubId);
+    }
+
     // Cargar categorías
     await loadCategories();
 

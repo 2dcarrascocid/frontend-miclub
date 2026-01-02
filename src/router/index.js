@@ -83,6 +83,12 @@ const routes = [
         meta: { requiresAuth: true },
     },
     {
+        path: '/membership',
+        name: 'Membership',
+        component: () => import('../views/Membership.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
         path: '/profile',
         name: 'Profile',
         component: Profile,
@@ -115,11 +121,32 @@ router.beforeEach((to, from, next) => {
     const hideForAuth = to.matched.some(record => record.meta.hideForAuth);
 
     if (requiresAuth && !authStore.isAuthenticated.value) {
-        // Ruta requiere autenticaciÃ³n pero el usuario no estÃ¡ autenticado
+        // Ruta requiere autenticación pero el usuario no está autenticado
         next('/login');
     } else if (hideForAuth && authStore.isAuthenticated.value) {
-        // Ruta es solo para no autenticados pero el usuario estÃ¡ autenticado
+        // Ruta es solo para no autenticados pero el usuario está autenticado
         next('/dashboard');
+    } else if (requiresAuth && authStore.isAuthenticated.value) {
+        // Validar permisos dinámicos
+        const permissions = authStore.permissions.value || [];
+        
+        // Rutas que siempre están permitidas si estás logueado
+        const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/error'];
+        
+        // Comprobar si la ruta actual coincide con alguna permitida (o es subruta)
+        const isAllowedExactOrSub = alwaysAllowed.some(path => to.path === path || to.path.startsWith(path + '/')) ||
+                                    permissions.some(p => to.path === p.ruta || to.path.startsWith(p.ruta + '/'));
+        
+        if (isAllowedExactOrSub) {
+            next();
+        } else {
+            console.warn(`Acceso denegado a ${to.path}. Redirigiendo a Dashboard.`);
+            if (to.path !== '/dashboard') {
+                next('/dashboard');
+            } else {
+                 next('/error');
+            }
+        }
     } else {
         next();
     }
