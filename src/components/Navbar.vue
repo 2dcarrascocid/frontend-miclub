@@ -4,7 +4,7 @@
       <div class="navbar-brand">
         <router-link to="/dashboard" class="logo">
             <span class="logo-icon">{{ clubIcon }}</span>
-          <span class="logo-text">Fairplay Club</span>
+          <span class="logo-text">Fair Club Chile</span>
         </router-link>
       </div>
 

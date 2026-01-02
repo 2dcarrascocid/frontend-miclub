@@ -18,30 +18,10 @@
         <div class="create-card">
           <div class="icon-wrapper">🏆</div>
           <h2>Crea tu Club</h2>
-          <form @submit.prevent="handleCreateClub">
-            <div class="form-group">
-              <label>Nombre del Club</label>
-              <input 
-                type="text" 
-                v-model="createForm.nombre" 
-                placeholder="Ej: Los Galácticos FC"
-                required
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>Dirección</label>
-              <input 
-                type="text" 
-                v-model="createForm.direccion" 
-                placeholder="Ej: Av. Siempre Viva 123"
-                class="form-input"
-              >
-            </div>
-            <button type="submit" class="btn btn-primary full-width" :disabled="submitting">
-              {{ submitting ? 'Creando...' : 'Crear mi Club' }}
-            </button>
-          </form>
+          <ClubForm 
+            :show-cancel="false" 
+            @success="handleCreateSuccess"
+          />
         </div>
       </div>
 
@@ -172,20 +152,10 @@
           <h2>Nuevo Club</h2>
           <button class="close-btn" @click="showCreateModal = false">×</button>
         </div>
-        <form @submit.prevent="handleCreateClub">
-          <div class="form-group">
-            <label>Nombre del Club</label>
-            <input type="text" v-model="createForm.nombre" required class="form-input">
-          </div>
-          <div class="form-group">
-            <label>Dirección</label>
-            <input type="text" v-model="createForm.direccion" class="form-input">
-          </div>
-          <div class="form-actions">
-            <button type="button" class="btn btn-outline" @click="showCreateModal = false">Cancelar</button>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">Crear</button>
-          </div>
-        </form>
+        <ClubForm 
+          @success="handleCreateSuccess"
+          @cancel="showCreateModal = false"
+        />
       </div>
     </div>
 
@@ -204,6 +174,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore, getSportIcon } from '../stores/club';
 import { clubsAPI, playersAPI, financeAPI, dashboardAPI } from '../api';
+import ClubForm from '../components/ClubForm.vue';
 
 const authStore = useAuthStore();
 const clubStore = useClubStore();
@@ -294,14 +265,8 @@ const userInitials = computed(() => {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 });
 
-const submitting = ref(false);
 const showCreateModal = ref(false);
 const balance = ref(0);
-
-const createForm = reactive({
-  nombre: '',
-  direccion: ''
-});
 
 const stats = ref([
   { icon: '⚽', label: 'Jugadores', value: '0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
@@ -355,30 +320,21 @@ const loadClubStats = async () => {
   }
 };
 
-const handleCreateClub = async () => {
-  submitting.value = true;
-  try {
-    const userId = authStore.user.value?.id;
-    await clubsAPI.create({ ...createForm, owner_id: userId });
-    
-    // Reload clubs
-    await clubStore.loadClubs();
-    
-    // If it's the first club, auto-select it
-    if (clubs.value.length === 1) {
-      clubStore.setSelectedClub(clubs.value[0]);
+const handleCreateSuccess = async () => {
+  // Reload clubs
+  await clubStore.loadClubs();
+  
+  // If it's the first club, or user just created one and none is selected, auto-select it
+  // We'll select the last one in the list assuming it's the new one, or just the first if length is 1
+  if (clubs.value.length === 1 || !selectedClub.value) {
+    const clubToSelect = clubs.value[clubs.value.length - 1];
+    if (clubToSelect) {
+      clubStore.setSelectedClub(clubToSelect);
     }
-    
-    showCreateModal.value = false;
-    createForm.nombre = '';
-    createForm.direccion = '';
-    showNotification('Club creado correctamente', 'success');
-  } catch (error) {
-    console.error('Error creating club:', error);
-    showNotification('Error al crear el club', 'error');
-  } finally {
-    submitting.value = false;
   }
+  
+  showCreateModal.value = false;
+  showNotification('Club creado correctamente', 'success');
 };
 
 const selectClub = (club) => {

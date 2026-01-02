@@ -21,11 +21,15 @@
       <!-- Empty State -->
       <div v-else-if="clubs.length === 0" class="empty-state">
         <span class="empty-icon">🏆</span>
-        <h3>No tienes clubes registrados</h3>
-        <p>Crea tu primer club para comenzar a gestionar jugadores y finanzas</p>
-        <button class="btn btn-primary" @click="openCreateModal">
-          Crear Primer Club
-        </button>
+        <h3>¡Bienvenido! Crea tu primer club</h3>
+        <p class="mb-4">Configura los datos básicos para comenzar a gestionar tu equipo.</p>
+        
+        <div class="empty-state-form-container">
+          <ClubForm 
+            :show-cancel="false" 
+            @success="handleSuccess"
+          />
+        </div>
       </div>
 
       <!-- Clubs Grid -->
@@ -80,58 +84,12 @@
           <button class="close-btn" @click="closeModal">×</button>
         </div>
         
-        <form @submit.prevent="handleSubmit">
-          <div class="form-group">
-            <label class="form-label">Nombre del Club</label>
-            <input 
-              type="text" 
-              v-model="form.nombre" 
-              placeholder="Ej: Los Galácticos FC"
-              required
-              class="form-input"
-            >
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Descripción</label>
-            <textarea 
-              v-model="form.descripcion" 
-              placeholder="Descripción breve del club..."
-              class="form-textarea"
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Deporte</label>
-            <select v-model="form.deporte" class="form-select" required>
-              <option v-for="opt in sportOptions" :key="opt.value" :value="opt.value">
-                {{ opt.icon }} {{ opt.label }}
-              </option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Logo del Club</label>
-            <div class="file-upload-container">
-              <input 
-                type="file" 
-                @change="handleFileChange" 
-                accept="image/*"
-                class="file-input"
-              >
-              <div v-if="previewImage || form.path_foto" class="image-preview mt-2">
-                <img :src="previewImage || form.path_foto" alt="Vista previa" class="preview-img">
-              </div>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn btn-outline" @click="closeModal">Cancelar</button>
-            <button type="submit" class="btn btn-primary" :disabled="submitting">
-              {{ submitting ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Club') }}
-            </button>
-          </div>
-        </form>
+        <ClubForm 
+          :initial-data="currentClubData"
+          :is-editing="isEditing"
+          @success="handleSuccess"
+          @cancel="closeModal"
+        />
       </div>
     </div>
 
@@ -163,38 +121,17 @@ import { useAuthStore } from '../stores/auth';
 import { getSportIcon } from '../stores/club';
 import { clubsAPI } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
-import axios from 'axios';
+import ClubForm from '../components/ClubForm.vue';
+import sportOptions from '../../sport-options.json';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const clubs = ref([]);
 const loading = ref(true);
 const showCreateModal = ref(false);
-const submitting = ref(false);
 const isEditing = ref(false);
-const editingId = ref(null);
-const selectedFile = ref(null);
-const previewImage = ref(null);
 const showConfirmModal = ref(false);
-const clubToDelete = ref(null);
-
-const sportOptions = [
-  { value: 'futbol', label: 'Fútbol', icon: '⚽' },
-  { value: 'futbolito', label: 'Futbolito', icon: '⚽' },
-  { value: 'babyfutbol', label: 'Babyfútbol', icon: '⚽' },
-  { value: 'futsal', label: 'Futsal', icon: '⚽' },
-  { value: 'basquetbol', label: 'Básquetbol', icon: '🏀' },
-  { value: 'voleibol', label: 'Voleibol', icon: '🏐' },
-  { value: 'rugby', label: 'Rugby', icon: '🏉' },
-  { value: 'otro', label: 'Otro', icon: '🎽' },
-];
-
-const form = reactive({
-  nombre: '',
-  descripcion: '',
-  path_foto: null,
-  deporte: 'futbol'
-});
+const currentClubData = ref({});
 
 const notification = reactive({
   show: false,
@@ -263,112 +200,19 @@ const formatDate = (dateString) => {
 
 const openCreateModal = () => {
     isEditing.value = false;
-    form.nombre = '';
-    form.descripcion = '';
-    form.path_foto = null;
-    form.deporte = 'futbol';
-    selectedFile.value = null;
-    previewImage.value = null;
+    currentClubData.value = {};
     showCreateModal.value = true;
 };
 
-const handleFileChange = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    selectedFile.value = file;
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      previewImage.value = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-};
-
-// Simple SHA-1 helper using Web Crypto API
-async function sha1(str) {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
-  return Array.from(new Uint8Array(hash))
-    .map(v => v.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-const uploadToCloudinary = async (file) => {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY;
-  const apiSecret = import.meta.env.VITE_CLOUDINARY_API_SECRET;
-  
-  if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error('Cloudinary environment variables missing');
-  }
-
-  const timestamp = Math.round((new Date()).getTime() / 1000);
-  
-  // Generate signature
-  const msg = `timestamp=${timestamp}${apiSecret}`;
-  const signature = await sha1(msg);
-  
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('api_key', apiKey);
-  formData.append('timestamp', timestamp);
-  formData.append('signature', signature);
-  
-  const response = await axios.post(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, 
-    formData
-  );
-  
-  return response.data.secure_url;
-};
-
-const handleSubmit = async () => {
-  submitting.value = true;
-  try {
-    // Upload image if selected
-    if (selectedFile.value) {
-      const imageUrl = await uploadToCloudinary(selectedFile.value);
-      form.path_foto = imageUrl;
-    }
-
-    if (isEditing.value) {
-      await clubsAPI.update({
-        id: editingId.value,
-        nombre: form.nombre,
-        descripcion: form.descripcion,
-        path_foto: form.path_foto,
-        deporte: form.deporte
-      });
-    } else {
-      const userId = authStore.user.value?.id;
-      const clubData = {
-        ...form,
-        owner_id: userId,
-        admin_id: userId
-      };
-      await clubsAPI.create(clubData);
-    }
-
-    await loadClubs();
-    closeModal();
-  } catch (error) {
-    console.error('Error saving club:', error);
-    alert('Error al guardar el club: ' + (error.message || 'Error desconocido'));
-  } finally {
-    submitting.value = false;
-  }
+const handleSuccess = async () => {
+  await loadClubs();
+  closeModal();
+  showNotification('Club guardado correctamente');
 };
 
 const editClub = (club) => {
   isEditing.value = true;
-  editingId.value = club.id;
-  form.nombre = club.nombre;
-  form.descripcion = club.descripcion;
-  form.path_foto = club.path_foto;
-  form.deporte = club.deporte || 'otro';
-  previewImage.value = null; // Reset preview, will show form.path_foto if available
-  selectedFile.value = null;
+  currentClubData.value = { ...club };
   showCreateModal.value = true;
 };
 
@@ -388,13 +232,7 @@ const deleteClub = async (id) => {
 const closeModal = () => {
   showCreateModal.value = false;
   isEditing.value = false;
-  editingId.value = null;
-  form.nombre = '';
-  form.descripcion = '';
-  form.path_foto = null;
-  form.deporte = 'futbol';
-  selectedFile.value = null;
-  previewImage.value = null;
+  currentClubData.value = {};
 };
 
 const getClubIcon = (club) => {
@@ -612,5 +450,15 @@ const formatSport = (deporte) => {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-state-form-container {
+  max-width: 500px;
+  margin: var(--spacing-xl) auto 0;
+  text-align: left;
+  background: var(--bg-card);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
 }
 </style>

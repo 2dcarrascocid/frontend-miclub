@@ -36,6 +36,16 @@ const state = reactive({
             return [];
         }
     })(),
+    userPlan: (() => {
+        try {
+            const stored = localStorage.getItem('userPlan');
+            if (!stored || stored === 'undefined') return null;
+            return JSON.parse(stored);
+        } catch (e) {
+            localStorage.removeItem('userPlan');
+            return null;
+        }
+    })(),
     loading: false,
     error: null,
 });
@@ -48,7 +58,7 @@ export const useAuthStore = () => {
         try {
             const response = await authAPI.login(credentials);
 
-            const { usuario, tokens, clubes, roles, permisos } = response.data;
+            const { usuario, tokens, clubes, roles, permisos, plan } = response.data;
             const user = usuario;
             const accessToken = tokens.access_token;
             const refreshToken = tokens.refresh_token;
@@ -68,6 +78,9 @@ export const useAuthStore = () => {
             if (permisos && permisos.length > 0) {
                 localStorage.setItem('userPermissions', JSON.stringify(permisos));
             }
+            if (plan) {
+                localStorage.setItem('userPlan', JSON.stringify(plan));
+            }
 
             // Actualizar estado
             state.user = user;
@@ -78,10 +91,11 @@ export const useAuthStore = () => {
             state.userClubs = clubes;
             state.userRoles = roles;
             state.permissions = permisos || [];
+            state.userPlan = plan || null;
 
             return response.data;
         } catch (error) {
-            state.error = error.response?.data?.message || 'Error al iniciar sesión';
+            state.error = error.response?.data?.message || 'Error al iniciar sesiï¿½n';
             throw error;
         } finally {
             state.loading = false;
@@ -125,7 +139,7 @@ export const useAuthStore = () => {
                 state.permissions = permisos || [];
             }
             
-            // Retornamos la respuesta completa para que el componente decida qué hacer
+            // Retornamos la respuesta completa para que el componente decida quï¿½ hacer
             return response.data;
         } catch (error) {
             state.error = error.response?.data?.message || 'Error al crear cuenta';
@@ -150,6 +164,7 @@ export const useAuthStore = () => {
             localStorage.removeItem('userClubs');
             localStorage.removeItem('userRoles');
             localStorage.removeItem('userPermissions');
+            localStorage.removeItem('userPlan');
             
             state.user = null;
             state.accessToken = null;
@@ -159,6 +174,7 @@ export const useAuthStore = () => {
             state.userClubs = [];
             state.userRoles = [];
             state.permissions = [];
+            state.userPlan = null;
         }
     };
 

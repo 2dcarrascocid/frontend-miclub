@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth';
 // Lazy loading de componentes
 const Login = () => import('../views/Login.vue');
 const Register = () => import('../views/Register.vue');
+const Landing = () => import('../views/Landing.vue');
 const Dashboard = () => import('../views/Dashboard.vue');
 const Players = () => import('../views/Players.vue');
 const Clubs = () => import('../views/Clubs.vue');
@@ -14,7 +15,9 @@ const ErrorView = () => import('../views/ErrorView.vue');
 const routes = [
     {
         path: '/',
-        redirect: '/dashboard',
+        name: 'Landing',
+        component: Landing,
+        meta: { requiresAuth: false },
     },
     {
         path: '/login',
@@ -121,16 +124,16 @@ router.beforeEach((to, from, next) => {
     const hideForAuth = to.matched.some(record => record.meta.hideForAuth);
 
     if (requiresAuth && !authStore.isAuthenticated.value) {
-        // Ruta requiere autenticación pero el usuario no está autenticado
+        // Ruta requiere autenticaciï¿½n pero el usuario no estï¿½ autenticado
         next('/login');
     } else if (hideForAuth && authStore.isAuthenticated.value) {
-        // Ruta es solo para no autenticados pero el usuario está autenticado
+        // Ruta es solo para no autenticados pero el usuario estï¿½ autenticado
         next('/dashboard');
     } else if (requiresAuth && authStore.isAuthenticated.value) {
-        // Validar permisos dinámicos
+        // Validar permisos dinï¿½micos
         const permissions = authStore.permissions.value || [];
         
-        // Rutas que siempre están permitidas si estás logueado
+        // Rutas que siempre estï¿½n permitidas si estï¿½s logueado
         const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/error'];
         
         // Comprobar si la ruta actual coincide con alguna permitida (o es subruta)

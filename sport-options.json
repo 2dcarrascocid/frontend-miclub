@@ -1,0 +1,10 @@
+[
+  { "value": "futbol", "label": "Fútbol", "icon": "⚽" },
+  { "value": "futbolito", "label": "Futbolito", "icon": "⚽" },
+  { "value": "babyfutbol", "label": "Babyfútbol", "icon": "⚽" },
+  { "value": "futsal", "label": "Futsal", "icon": "⚽" },
+  { "value": "basquetbol", "label": "Básquetbol", "icon": "🏀" },
+  { "value": "voleibol", "label": "Voleibol", "icon": "🏐" },
+  { "value": "rugby", "label": "Rugby", "icon": "🏉" },
+  { "value": "otro", "label": "Otro", "icon": "🎽" }
+]
