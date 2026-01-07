@@ -176,6 +176,12 @@ export const financeAPI = {
     deleteTransaction: (id) => apiClient.delete(`/finanzas/${id}`),
 };
 
+// ==================== PAYMENT API ====================
+export const paymentAPI = {
+    initiatePayment: (clubId, data) => apiClient.post(`/clubes/${clubId}/pagos/checkout`, data),
+    getTransactionStatus: (clubId, token) => apiClient.post(`/clubes/${clubId}/suscripcion/activar`, { token }),
+};
+
 // ==================== MATCHES API ====================
 // Removed as per user instruction
 /*

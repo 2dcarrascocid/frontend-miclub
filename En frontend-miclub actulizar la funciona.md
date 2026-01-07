@@ -1,50 +1,208 @@
-En frontend-miclub actulizar la funcionalidad de crear eequipo con las nuevas propiedades:
-en dashboard en caso que no exista club y se necesita crear el primer club aplicar estas reglas
-root/src/views/Dashboard.vue
-en caso de = <!-- SCENARIO 1: NO CLUBS (CREATE FIRST CLUB) -->
-Funcionalidad:
+Rol del agente:
+Actúa como Frontend Engineer senior especializado en SPA modernas (Vue 3 preferentemente) con experiencia en integraciones de pasarelas de pago, manejo de redirecciones seguras, UX de pagos y consumo de APIs REST.
 
-- crear un club con las siguientes atributos:
+⚙️ Requisito de entorno (OBLIGATORIO)
 
-servicio:
-POST: http://localhost:3000/clubes
-body:
-{
-"nombre": "usuario_prueba_03@example.com", // MAX: 100
-"descripcion": "Password123!", // MAX : 200
-"path_foto":"/", // RUTA DE IMAGEN CLOUDINARY_CLOUD
-"deporte": "futbol" // exportar la lista de sport-options.json y seleccionar 1
-}
+Antes de ejecutar cualquier comando, instalar dependencias o levantar el proyecto, el agente DEBE ejecutar:
 
-Usa el stack: Vue 3, Vite y Axios.
-Usa estilos oscuros/modernos acorde al diseño actual.
-crea o actulaiza las clases de utilidad de style.css
+nvm use 22
 
-PASO PREVIO:
-En frontend-miclub crear una vista que con acceso libre sin login:
-Funcionalidad:
 
-- crear uns vista con acceso general con la presentancion de los palnes segun el archivo ./planes.json
-- con acceso al login cuando el usuario ya tiene cuenta.
-- acceso al registro de usuario caundo seleccione el el plan gratis.
-- los pagados van a un link externo para pagar con trasbank (dejar listo para implementar posteriormente)
+Y confirmar que el proyecto corre sobre Node.js v22.x.
 
-Usa el stack: Vue 3, Vite y Axios.
-Usa estilos oscuros/modernos acorde al diseño actual.
-crea o actulaiza las clases de utilidad de style.css
+🎯 Objetivo general
 
-PERFIL
-En frontend-miclub editar el perfil del usuario logeado: Profile.vue
-Funcionalidad:
+Diseñar e implementar la integración frontend con Webpay Plus, consumiendo un backend propio, sin exponer credenciales, garantizando una experiencia de pago clara, segura y resiliente.
 
-- mostrar los datos del usuario logeado.
-- editar los datos del usuario logeado.
-- listar los clubes que posee el usuario
-- poder editar los datos del club que posee el usuario
-- mostarar clubes, roles, permisos y planes en un solo tarjeta separdos por pestañas
+🧩 Alcance del requerimiento (Frontend)
+1️⃣ Lógica de experiencia de usuario (UX)
 
-te dejo el json que carga el perfil de un usuario logeado:
-{"usuario":{"id":"56697878-60c5-451d-9f11-345779695952","email":"dcarrascocid@gmail.com","provider":"local","metadata":{"nombre":"DAVID","apellido":"CARRASCO"},"created_at":"2025-12-31T22:22:47.171357+00:00","updated_at":"2025-12-31T22:22:47.171357+00:00","email_verified":true,"verification_token":null,"verification_token_expires_at":null},"roles":["administrador_basic"],"permisos":[{"nombre":"Dashboard","ruta":"/dashboard","icono":"🏠","puede_editar":false},{"nombre":"Jugadores","ruta":"/players","icono":"👥","puede_editar":false},{"nombre":"Eventos","ruta":"/events","icono":"📅","puede_editar":false}],"clubes":[{"id":"7f6b4c25-e0f4-4a6c-b15a-7102f03bd4c8","nombre":"ESTRELLA VERDE FUTBOL CLUB","descripcion":"JUEGUEN COMO TOMAN","admin_id":"56697878-60c5-451d-9f11-345779695952","created_at":"2026-01-02T18:07:10.686617+00:00","updated_at":"2026-01-02T18:07:10.686617+00:00","path_foto":"https://res.cloudinary.com/duy2zl3ut/image/upload/v1767377229/zgbtglrinaqkeixbna5t.jpg","deporte":"futbol"}],"tokens":{"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NjY5Nzg3OC02MGM1LTQ1MWQtOWYxMS0zNDU3Nzk2OTU5NTIiLCJyb2xlcyI6WyJhZG1pbmlzdHJhZG9yX2Jhc2ljIl0sImlhdCI6MTc2NzM3OTU3NSwiZXhwIjoxNzY3MzgwNDc1fQ.IjS99jVJl_Yo6JNN1A8huf7ucWAhXqzKkIsls5mEoMM","refresh_token":"f67632ebd98f342465ffddf157eac56660d196b1291b86423f59c7d4f41eafb75ac34e18633a25695518a09389b6561c7891eb54e4f75dccc67b950f6aded6c8","session_id":"1e09e332-93f3-4494-974d-725ba6ff3dc4"},"plan":{"id":111, "plan":"xxxxx"}}
+Explicar claramente el flujo completo desde el frontend:
+
+Usuario selecciona un producto / suscripción / evento.
+
+Usuario presiona “Pagar”.
+
+Frontend solicita creación de pago al backend.
+
+Frontend recibe token + url.
+
+Frontend redirige al formulario Webpay vía POST.
+
+Usuario vuelve desde Webpay a una vista de resultado.
+
+Frontend consulta backend para confirmar estado final.
+
+Debe explicarse:
+
+Qué pantallas existen
+
+Qué información se muestra en cada estado
+
+Qué ocurre si el usuario cancela, recarga o pierde conexión
+
+2️⃣ Comunicación con el Backend
+
+Definir claramente:
+
+Endpoints consumidos
+
+Payloads enviados
+
+Payloads recibidos
+
+Manejo de errores HTTP y timeouts
+
+Retries controlados (si aplica)
+
+Ejemplo esperado:
+
+POST /api/pagos/webpay-plus/create
+
+GET /api/pagos/webpay-plus/status/:token
+
+3️⃣ Redirección a Webpay (CRÍTICO)
+
+Explicar e implementar:
+
+Por qué NO se puede usar window.location
+
+Uso obligatorio de:
+
+<form method="POST" action="{url}">
+
+input hidden token_ws
+
+Auto-submit del formulario
+
+Limpieza del DOM tras la redirección
+
+4️⃣ Vistas de retorno
+
+Diseñar vistas claras:
+
+Pago exitoso
+
+Pago rechazado
+
+Pago cancelado
+
+Error inesperado
+
+Cada vista debe:
+
+Consultar backend para validar estado real
+
+NO confiar en parámetros del navegador
+
+Mostrar mensajes claros al usuario
+
+Permitir reintento o volver al inicio
+
+5️⃣ Arquitectura Frontend (Vue 3 sugerido)
+
+Definir estructura:
+
+services/ (API pagos)
+
+views/ (PagoInicio, PagoExito, PagoError)
+
+stores/ (Pinia, si aplica)
+
+router/ (rutas de retorno)
+
+Buenas prácticas:
+
+Separación de lógica
+
+Componentes pequeños
+
+Manejo centralizado de errores
+
+Loading states y bloqueo de botones
+
+6️⃣ Seguridad (Frontend)
+
+El agente debe dejar explícito:
+
+Qué NO debe hacer el frontend
+
+Por qué nunca debe:
+
+Guardar tokens en localStorage
+
+Persistir estados de pago sin backend
+
+Exponer llaves o headers Transbank
+
+Cómo evitar doble click / doble pago
+
+7️⃣ Implementación técnica
+
+Entregar:
+
+Código Vue 3 (Composition API)
+
+Servicio JS/TS para pagos
+
+Ejemplo de auto-submit form
+
+Manejo de estados visuales (loading, disabled)
+
+Manejo de rutas protegidas post-pago
+
+8️⃣ Entregables esperados
+
+El agente debe entregar:
+
+Diagrama del flujo frontend
+
+Documentación técnica de integración frontend
+
+Ejemplos de código listos para producción
+
+Checklist de pruebas:
+
+Pago exitoso
+
+Pago rechazado
+
+Cancelación usuario
+
+Refresh / back browser
+
+Errores comunes y mitigaciones
+
+🛑 Restricciones
+
+No usar librerías externas para el pago (solo redirección estándar)
+
+No implementar lógica de negocio de pagos en frontend
+
+No asumir acceso directo a Transbank desde frontend
+
+Cumplir estrictamente el flujo oficial de Webpay Plus
+
+📌 Contexto adicional
+
+SPA moderna (Vue / Vite)
+
+Backend propio
+
+Pasarela Transbank Webpay Plus
+
+Uso en pagos de eventos, suscripciones y servicios deportivos
+
+Si quieres, en el próximo paso puedo:
+
+Unificar este prompt con el backend en un solo requerimiento maestro
+
+Convertir esto en una historia de usuario Jira
+
+Adaptarlo a Nuxt 3
+
+Bajar esto a una checklist de implementación paso a paso
+
 Usa el stack: Vue 3, Vite y Axios.
 Usa estilos oscuros/modernos acorde al diseño actual.
 crea o actulaiza las clases de utilidad de style.css

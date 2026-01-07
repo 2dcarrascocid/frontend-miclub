@@ -92,6 +92,12 @@ const routes = [
         meta: { requiresAuth: true },
     },
     {
+        path: '/payment/result',
+        name: 'PaymentResult',
+        component: () => import('../views/PaymentResult.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
         path: '/profile',
         name: 'Profile',
         component: Profile,
@@ -133,8 +139,8 @@ router.beforeEach((to, from, next) => {
         // Validar permisos din�micos
         const permissions = authStore.permissions.value || [];
         
-        // Rutas que siempre est�n permitidas si est�s logueado
-        const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/error'];
+        // Rutas que siempre estn permitidas si ests logueado
+        const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/payment/result', '/error'];
         
         // Comprobar si la ruta actual coincide con alguna permitida (o es subruta)
         const isAllowedExactOrSub = alwaysAllowed.some(path => to.path === path || to.path.startsWith(path + '/')) ||

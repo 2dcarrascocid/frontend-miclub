@@ -6,7 +6,7 @@
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="loading-container">
+    <div v-if="loading || isRedirecting" class="loading-container">
       <div class="spinner"></div>
     </div>
 
@@ -43,6 +43,7 @@
             
             <div v-if="suscripcion && suscripcion.estado === 'pendiente_pago'" class="alert alert-warning mt-3">
                 <p>⚠️ Tienes una solicitud de cambio pendiente. Realiza el pago para activar tu nuevo plan.</p>
+                <button @click="handlePayment" class="btn btn-primary mt-2">Pagar Ahora</button>
             </div>
             
             <div v-if="!suscripcion" class="text-muted">
@@ -157,7 +158,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { membershipAPI } from '../api';
+import { membershipAPI, paymentAPI } from '../api';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
@@ -167,15 +168,25 @@ const suscripcion = ref(null);
 const historial = ref([]);
 const showModal = ref(false);
 const selectedPlan = ref(null);
+const isRedirecting = ref(false);
 
 // Get Club ID
 const clubId = computed(() => {
-    return authStore.userClubs?.[0]?.id;
+    return authStore.userClubs.value?.[0]?.id;
 });
 
 const loadData = async () => {
     loading.value = true;
     try {
+        // Si no tenemos clubId, intentamos refrescar el perfil
+        if (!clubId.value) {
+            try {
+                await authStore.fetchUserProfile();
+            } catch (e) {
+                console.warn("No se pudo obtener el perfil del usuario:", e);
+            }
+        }
+
         const promises = [membershipAPI.getPlanes()];
         
         if (clubId.value) {
@@ -259,6 +270,10 @@ const selectPlan = (plan) => {
 
 const confirmChange = async () => {
     if (!selectedPlan.value) return;
+    if (!clubId.value) {
+        alert('Error: No se ha identificado el club asociado. Por favor recarga la página.');
+        return;
+    }
     try {
         await membershipAPI.solicitarCambio(clubId.value, {
             plan_codigo: selectedPlan.value.codigo,
@@ -267,10 +282,115 @@ const confirmChange = async () => {
         });
         showModal.value = false;
         await loadData();
-        alert('Solicitud enviada. Revisa tu correo o estado pendiente.');
+        
+        // Proceder automáticamente al pago si la suscripción quedó pendiente
+        if (suscripcion.value?.estado === 'pendiente_pago') {
+             console.log('Iniciando flujo de pago automático...');
+             await handlePayment();
+        } else {
+             alert('Solicitud procesada correctamente.');
+        }
     } catch (e) {
         console.error(e);
         alert('Error al solicitar cambio: ' + (e.response?.data?.message || e.message));
+    }
+};
+
+const handlePayment = async () => {
+    if (!clubId.value) {
+         alert('Error: No se ha identificado el club asociado. Por favor recarga la página.');
+         return;
+    }
+
+    console.log('--- DEBUG PAYMENT DATA ---');
+            console.log('Suscripcion Full:', suscripcion.value);
+            console.log('Plan en Suscripcion:', suscripcion.value?.plan);
+            console.log('Auth User Full:', authStore.user);
+            console.log('Club ID:', clubId.value);
+            
+            // Intento robusto de recuperación de datos faltantes
+            let planCodigo = suscripcion.value?.plan?.codigo || suscripcion.value?.plan_codigo;
+            
+            // 1. Si falta, buscar en la lista de planes cargados
+            if (!planCodigo && suscripcion.value?.plan_id) {
+                const foundPlan = planes.value.find(p => p.id === suscripcion.value.plan_id);
+                if (foundPlan) {
+                    console.log('Plan encontrado en lista:', foundPlan);
+                    planCodigo = foundPlan.codigo;
+                }
+            }
+            
+            // 2. Si falta, buscar en el plan seleccionado recientemente
+            if (!planCodigo && selectedPlan.value) {
+                 planCodigo = selectedPlan.value.codigo;
+            }
+
+            // Recuperación de User ID
+            let userId = authStore.user?.id || authStore.user?.sub || authStore.user?.username;
+            
+            // 3. Fallback directo a localStorage si el store falla
+            if (!userId) {
+                try {
+                    const storedUser = JSON.parse(localStorage.getItem('user'));
+                    if (storedUser) {
+                        userId = storedUser.id || storedUser.sub || storedUser.username;
+                        console.log('User ID recuperado de localStorage:', userId);
+                    }
+                } catch (e) {
+                    console.error('Error leyendo user de localStorage', e);
+                }
+            }
+
+            console.log('Datos finales para pago - Plan:', planCodigo, 'User:', userId);
+
+            const paymentData = {
+                club_id: clubId.value,
+                plan_id: suscripcion.value?.plan?.id || suscripcion.value?.plan_id,
+                plan_codigo: planCodigo,
+                user_id: userId,
+                amount: Math.round(Number(suscripcion.value?.plan?.precio_mensual || 0)),
+                return_url: window.location.origin + '/payment/result?clubId=' + clubId.value
+            };
+
+            if (!paymentData.plan_id || !paymentData.amount || !paymentData.plan_codigo || !paymentData.user_id) {
+                console.error('Datos incompletos para el pago:', paymentData);
+                alert('Error: Datos de suscripción incompletos. Faltan datos requeridos (plan_codigo, user_id).');
+                return;
+            }
+
+            try {
+                isRedirecting.value = true;
+                const response = await paymentAPI.initiatePayment(clubId.value, paymentData);
+
+        // Backend devuelve { token, url, buy_order }
+        const { url, token, buy_order } = response.data;
+        
+        console.log(`Iniciando redirección a Webpay. Orden: ${buy_order}`);
+
+        if (url && token) {
+            const form = document.createElement('form');
+            form.action = url;
+            form.method = 'POST';
+            
+            const inputToken = document.createElement('input');
+            inputToken.type = 'hidden';
+            inputToken.name = 'token_ws';
+            inputToken.value = token;
+            
+            form.appendChild(inputToken);
+            document.body.appendChild(form);
+            form.submit();
+        } else {
+            isRedirecting.value = false;
+            console.error('Respuesta inválida del servidor:', response.data);
+            alert('Error al iniciar pago: La respuesta del servidor no contiene la URL o el token necesarios.');
+        }
+    } catch (e) {
+        isRedirecting.value = false;
+        console.error('Error en el proceso de pago:', e);
+        const errorMessage = e.response?.data?.message || e.message || 'Error desconocido';
+        const errorDetail = JSON.stringify(e.response?.data || {});
+        alert(`Error al conectar con la pasarela de pago: ${errorMessage}. Detalles: ${errorDetail}`);
     }
 };
 

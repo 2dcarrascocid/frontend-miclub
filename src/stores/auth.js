@@ -26,6 +26,16 @@ const state = reactive({
             return [];
         }
     })(),
+    userClubs: (() => {
+        try {
+            const stored = localStorage.getItem('userClubs');
+            if (!stored || stored === 'undefined') return [];
+            return JSON.parse(stored);
+        } catch (e) {
+            localStorage.removeItem('userClubs');
+            return [];
+        }
+    })(),
     permissions: (() => {
         try {
             const stored = localStorage.getItem('userPermissions');
@@ -183,12 +193,49 @@ export const useAuthStore = () => {
         localStorage.setItem('user', JSON.stringify(userData));
     };
 
+    const fetchUserProfile = async () => {
+        if (!state.accessToken) return;
+        
+        try {
+            const response = await authAPI.getProfile();
+            const { usuario, clubes, roles, permisos, plan } = response.data;
+            
+            // Actualizar state
+            if (usuario) {
+                state.user = usuario;
+                localStorage.setItem('user', JSON.stringify(usuario));
+            }
+            if (clubes) {
+                state.userClubs = clubes;
+                localStorage.setItem('userClubs', JSON.stringify(clubes));
+            }
+            if (roles) {
+                state.userRoles = roles;
+                localStorage.setItem('userRoles', JSON.stringify(roles));
+            }
+            if (permisos) {
+                state.permissions = permisos;
+                localStorage.setItem('userPermissions', JSON.stringify(permisos));
+            }
+            if (plan) {
+                state.userPlan = plan;
+                localStorage.setItem('userPlan', JSON.stringify(plan));
+            }
+            
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+            throw error;
+        }
+    };
+
     return {
         ...toRefs(state),
         state, // Expose reactive state object for direct access if needed
         login,
         register,
         logout,
-        updateUserData
+        updateUserData,
+        fetchUserProfile
     };
 };
