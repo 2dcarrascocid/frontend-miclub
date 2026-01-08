@@ -27,7 +27,7 @@
                     <label>Periodo</label>
                     <div class="sub-value capitalize">{{ suscripcion.billing_period || 'Mensual' }}</div>
                 </div>
-                                <div class="sub-item">
+                <div class="sub-item">
                     <label>Valor Anual</label>
                     <div class="sub-value capitalize"> $ {{ formatPrice(suscripcion.plan.precio_anual) || 0}}</div>
                 </div>
@@ -94,7 +94,9 @@
                         <span class="amount">{{ formatPrice(plan.displayPrice) }}</span>
                         <span class="period-suffix" style="font-size: 1rem; color: var(--text-muted); margin-left: 4px; align-self: center;">/ mes</span>
                     </div>
-                    <div class="period-label">Facturado cada {{ cycles[billingCycle].months }} {{ cycles[billingCycle].months > 1 ? 'meses' : 'mes' }}</div>
+                    <div class="period-label">
+                        Facturado {{ billingCycle !== 'mensual' ? '$' + formatPrice(plan.totalPrice) : '' }} cada {{ cycles[billingCycle].months }} {{ cycles[billingCycle].months > 1 ? 'meses' : 'mes' }}
+                    </div>
                     
                     <div v-if="plan.savings > 0" class="savings-text">
                         Ahorras ${{ formatPrice(plan.savings) }} {{ billingCycle === 'anual' ? 'al año' : 'por periodo' }}
@@ -161,6 +163,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Confirmar Cambio de Plan</h3>
+                {{ selectedPlan }}
+
                 <button @click="showModal = false" class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
@@ -224,6 +228,7 @@ const selectedPlan = ref(null);
 
 const cycles = {
     mensual: { label: 'Mensual', discount: 0, months: 1 },
+    semestral: { label: 'Semestral', discount: 0.05, months: 6 },
     anual: { label: 'Anual', discount: 0.2, months: 12 } // 20% discount
 };
 
@@ -278,23 +283,29 @@ const formatFeatureLabel = (key, val) => {
     return `${val} ${labels[key] || key}`;
 };
 
+const calculatePlanTotal = (plan, cycleKey) => {
+    if (!plan) return 0;
+    const cycle = cycles[cycleKey] || cycles.mensual;
+    const monthly = Number(plan.precio_mensual);
+    // Formula: Monthly * Months * (1 - Discount)
+    return Math.round(monthly * cycle.months * (1 - cycle.discount));
+};
+
 // Computed Plans with Prices
 const processedPlanes = computed(() => {
     return planes.value.map(plan => {
         const monthly = Number(plan.precio_mensual);
-        let displayPrice = monthly;
-        let savings = 0;
-
-        if (billingCycle.value === 'anual') {
-            const annualTotal = monthly * 12 * (1 - cycles.anual.discount);
-            displayPrice = Math.round(annualTotal / 12); // Price per month equivalent
-            savings = (monthly * 12) - annualTotal;
-        }
+        const cycle = cycles[billingCycle.value] || cycles.mensual;
+        
+        const totalPrice = calculatePlanTotal(plan, billingCycle.value);
+        const displayPrice = Math.round(totalPrice / cycle.months);
+        const savings = (monthly * cycle.months) - totalPrice;
 
         return {
             ...plan,
             displayPrice,
-            savings
+            totalPrice,
+            savings: Math.round(savings)
         };
     }).sort((a, b) => a.precio_mensual - b.precio_mensual);
 });
@@ -353,10 +364,7 @@ const selectPlan = (plan) => {
 };
 
 const calculateTotal = () => {
-    if (!selectedPlan.value) return 0;
-    const cycle = cycles[billingCycle.value];
-    const monthly = Number(selectedPlan.value.precio_mensual);
-    return Math.round(monthly * cycle.months * (1 - cycle.discount));
+    return calculatePlanTotal(selectedPlan.value, billingCycle.value);
 };
 
 const confirmChangePlan = () => {
@@ -375,48 +383,41 @@ const confirmChangePlan = () => {
 
 const handlePayment = () => {
     // Retry payment for pending subscription
-    // We need to reconstruct the payment data. 
-    // Ideally backend provides a payment link or we re-initiate.
-    // For now, let's assume we re-initiate with current plan logic?
-    // Or we should have a specific endpoint to pay pending?
-    // Simplest: re-run initiatePayment with same parameters as the pending sub.
     if (suscripcion.value.plan) {
-        selectedPlan.value = suscripcion.value.plan;
-        // billingCycle might be lost, let's infer or default
+        // Update cycle first to ensure processedPlanes has correct calculations
         billingCycle.value = suscripcion.value.billing_period || 'mensual';
+        
+        // Try to find the plan in processedPlanes to get the one with computed totalPrice
+        const enrichedPlan = processedPlanes.value.find(p => p.id === suscripcion.value.plan.id);
+        
+        selectedPlan.value = enrichedPlan || suscripcion.value.plan;
         initiatePayment();
     }
 };
 
 const initiatePayment = async () => {
-    // Prepare Transbank data
-    // This is a simplified flow.
-    let period = 'mensual';
-    if (selectedPlan.value) {
-        // If we reloaded page, we default to 'mensual' or try to guess?
-        // Let's use billingCycle.value if it matches the plan? 
-        // No, user might change selector.
-        // We will default to 'mensual' if not present, but for now let's trust the flow.
-        period = 'mensual'; 
-        if (suscripcion.value?.plan?.id === selectedPlan.value?.id) {
-             period = billingCycle.value;
-        }
+    // Determine the plan to pay for
+    const planToPay = selectedPlan.value || suscripcion.value?.plan;
+    
+    if (!planToPay) {
+        alert('Error: No se ha seleccionado un plan para el pago.');
+        return;
     }
 
-    // Logic to calculate amount based on period
-    const cycleInfo = cycles[period] || cycles['mensual'];
-    const monthlyPrice = Number(suscripcion.value?.plan?.precio_mensual || 0);
-    const totalForPeriod = monthlyPrice * cycleInfo.months;
-    const discountAmount = totalForPeriod * cycleInfo.discount;
-    const finalAmount = Math.round(totalForPeriod - discountAmount);
-
-    // Prepare data
-    let planCodigo = suscripcion.value?.plan?.codigo || suscripcion.value?.plan_codigo;
-    if (!planCodigo && suscripcion.value?.plan_id) {
-        const foundPlan = planes.value.find(p => p.id === suscripcion.value.plan_id);
-        if (foundPlan) planCodigo = foundPlan.codigo;
-    }
-
+    // Determine period and calculation
+    // Use the current selected billing cycle
+    alert("billingCycle.value",billingCycle.value)
+    const currentCycleKey = billingCycle.value || 'mensual';
+    
+    // Use totalPrice from the plan object as requested
+    // Fallback to calculation only if attribute is missing (safety net)
+    const finalBilledAmount = planToPay.totalPrice !== undefined 
+        ? planToPay.totalPrice 
+        : calculatePlanTotal(planToPay, currentCycleKey);
+    
+    console.log(`Iniciando pago: Ciclo=${currentCycleKey}, Total=${finalBilledAmount}`);
+    alert(`Confirmar pago: Ciclo=${currentCycleKey}, Total=${finalBilledAmount}`);
+    // Get User ID
     let userId = authStore.user?.id || authStore.user?.sub || authStore.user?.username;
     if (!userId) {
         try {
@@ -425,17 +426,20 @@ const initiatePayment = async () => {
         } catch (e) {}
     }
 
+    // Prepare Payment Data
     const paymentData = {
         club_id: clubId.value,
-        plan_id: suscripcion.value?.plan?.id || suscripcion.value?.plan_id,
-        plan_codigo: planCodigo,
+        plan_id: planToPay.id,
+        plan_codigo: planToPay.codigo,
         user_id: userId,
-        amount: finalAmount,
+        amount: finalBilledAmount, // El precio facturado
+        billing_period: currentCycleKey,
         return_url: window.location.origin + '/payment/result?clubId=' + clubId.value
     };
 
     if (!paymentData.plan_id || !paymentData.amount || !paymentData.plan_codigo || !paymentData.user_id) {
-        alert('Error: Datos incompletos (plan_codigo, user_id).');
+        console.error('Payment Data Error:', paymentData);
+        alert(`Error: Datos incompletos (plan_codigo: ${paymentData.plan_codigo}, user_id: ${paymentData.user_id}).`);
         return;
     }
 
@@ -550,6 +554,7 @@ onMounted(() => {
     min-width: 300px; /* Ensure cards don't get too narrow */
     display: flex;
     flex-direction: column;
+    margin: 10px;
 }
 
 .plan-features {
