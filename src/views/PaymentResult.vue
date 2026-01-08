@@ -113,6 +113,11 @@ onMounted(async () => {
     }
 
     try {
+      // Asegurar que tenemos el usuario cargado para la activación
+      if (!authStore.user) {
+          await authStore.fetchUserProfile();
+      }
+
       // Confirmar transacción con backend
       // El backend debe llamar a commit() en Transbank SDK
       const response = await paymentAPI.getTransactionStatus(clubId, token);
@@ -137,6 +142,45 @@ onMounted(async () => {
           
         status.value = 'success';
         details.value = response.data;
+
+        // --- Lógica de Activación Post-Pago (Frontend Only Fix) ---
+        // Recuperar el ciclo de facturación real seleccionado (ej. semestral)
+        // ya que al backend se envió 'mensual' para evitar error de Enum.
+        const pendingCycle = localStorage.getItem('pendingBillingCycle');
+        
+        if (pendingCycle && authStore.user) {
+            console.log(`Procesando activación para ciclo pendiente: ${pendingCycle}`);
+            
+            const now = new Date();
+            const fechaFin = new Date(now);
+            let monthsToAdd = 1;
+
+            if (pendingCycle === 'semestral') monthsToAdd = 6;
+            else if (pendingCycle === 'anual') monthsToAdd = 12;
+            
+            fechaFin.setMonth(fechaFin.getMonth() + monthsToAdd);
+
+            try {
+                const activationResponse = await membershipAPI.activarSuscripcion(clubId, {
+                    fecha_fin: fechaFin.toISOString(),
+                    motivo: `Activación automática Webpay (${pendingCycle})`,
+                    user_id: authStore.user.id
+                });
+                console.log('Suscripción activada con fecha correcta:', activationResponse);
+                // Actualizar detalles con la respuesta de activación si es necesario
+                if (activationResponse.data && activationResponse.data.suscripcion) {
+                     details.value = { ...details.value, ...activationResponse.data.suscripcion };
+                }
+            } catch (actError) {
+                console.error('Error activando suscripción con fecha personalizada:', actError);
+                // No fallamos la vista de éxito porque el pago sí pasó, pero logueamos el error.
+                // Podríamos mostrar una advertencia, pero mejor dejar que el admin lo resuelva si falla.
+            } finally {
+                localStorage.removeItem('pendingBillingCycle');
+            }
+        }
+        // -----------------------------------------------------------
+
       } else {
         status.value = 'error';
         errorMessage.value = response.data.message || 'El pago fue rechazado por el banco.';

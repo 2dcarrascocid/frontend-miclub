@@ -351,6 +351,12 @@ p {
 /* Text Styles */
 .text-center { text-align: center; }
 .text-muted { color: var(--text-muted); }
+.text-success { color: var(--accent-green); }
+.text-warning { color: var(--accent-orange); }
+.text-danger { color: var(--accent-red); }
+.capitalize { text-transform: capitalize; }
+.uppercase { text-transform: uppercase; }
+
 .text-gradient {
   background: var(--primary-gradient);
   -webkit-background-clip: text;
@@ -368,8 +374,10 @@ p {
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
 .flex-wrap { flex-wrap: wrap; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
 
 .grid { display: grid; }
 .hidden { display: none; }

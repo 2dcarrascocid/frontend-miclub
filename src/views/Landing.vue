@@ -106,6 +106,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { paymentAPI } from '../api';
 import plansData from '../../planes.json';
 import logo from "../../src/assets/fplay.png";
 
@@ -126,25 +127,58 @@ const scrollToPlans = () => {
   }
 };
 
-const handlePlanSelection = (plan) => {
-  if (isAuthenticated.value) {
-    // If already logged in, maybe redirect to membership or upgrade page (placeholder)
-    // For now, let's just go to dashboard if they click free, or same external link if paid
-    if (plan.precio_mensual === 0) {
-        router.push('/dashboard');
+const handlePlanSelection = async (plan) => {
+  // Free plan logic
+  if (plan.precio_mensual === 0) {
+    if (isAuthenticated.value) {
+      router.push('/dashboard');
     } else {
-        window.location.href = 'https://www.webpay.cl'; // Placeholder external link
+      router.push('/register');
     }
     return;
   }
 
-  if (plan.precio_mensual === 0) {
-    // Free plan -> Register
+  // Paid plan logic
+  if (!isAuthenticated.value) {
+    // Redirect to register if not logged in
+    // Store selected plan to handle after registration (future improvement)
+    localStorage.setItem('pendingPlan', JSON.stringify(plan));
     router.push('/register');
-  } else {
-    // Paid plan -> External Payment
-    // TODO: Implement actual payment flow integration
-    window.location.href = 'https://www.webpay.cl'; 
+    return;
+  }
+
+  try {
+    // Initiate payment
+    const response = await paymentAPI.initiatePayment({
+      plan_id: plan.id,
+      amount: plan.precio_mensual,
+      return_url: window.location.origin + '/payment/result'
+    });
+
+    const { url, token } = response.data;
+
+    if (url && token) {
+      // Auto-submit form to Webpay
+      const form = document.createElement('form');
+      form.action = url;
+      form.method = 'POST';
+      
+      const inputToken = document.createElement('input');
+      inputToken.type = 'hidden';
+      inputToken.name = 'token_ws';
+      inputToken.value = token;
+      
+      form.appendChild(inputToken);
+      document.body.appendChild(form);
+      form.submit();
+    } else {
+      console.error('Invalid payment response:', response.data);
+      alert('Error al iniciar el pago: Respuesta inválida del servidor.');
+    }
+
+  } catch (error) {
+    console.error('Error initiating payment:', error);
+    alert('Error al iniciar el pago. Por favor intente nuevamente más tarde.');
   }
 };
 </script>

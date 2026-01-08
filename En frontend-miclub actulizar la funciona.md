@@ -1,208 +1,84 @@
-Rol del agente:
-Actúa como Frontend Engineer senior especializado en SPA modernas (Vue 3 preferentemente) con experiencia en integraciones de pasarelas de pago, manejo de redirecciones seguras, UX de pagos y consumo de APIs REST.
-
-⚙️ Requisito de entorno (OBLIGATORIO)
-
-Antes de ejecutar cualquier comando, instalar dependencias o levantar el proyecto, el agente DEBE ejecutar:
-
-nvm use 22
-
-
-Y confirmar que el proyecto corre sobre Node.js v22.x.
-
-🎯 Objetivo general
-
-Diseñar e implementar la integración frontend con Webpay Plus, consumiendo un backend propio, sin exponer credenciales, garantizando una experiencia de pago clara, segura y resiliente.
-
-🧩 Alcance del requerimiento (Frontend)
-1️⃣ Lógica de experiencia de usuario (UX)
-
-Explicar claramente el flujo completo desde el frontend:
-
-Usuario selecciona un producto / suscripción / evento.
-
-Usuario presiona “Pagar”.
-
-Frontend solicita creación de pago al backend.
-
-Frontend recibe token + url.
-
-Frontend redirige al formulario Webpay vía POST.
-
-Usuario vuelve desde Webpay a una vista de resultado.
-
-Frontend consulta backend para confirmar estado final.
-
-Debe explicarse:
-
-Qué pantallas existen
-
-Qué información se muestra en cada estado
-
-Qué ocurre si el usuario cancela, recarga o pierde conexión
-
-2️⃣ Comunicación con el Backend
-
-Definir claramente:
-
-Endpoints consumidos
-
-Payloads enviados
-
-Payloads recibidos
-
-Manejo de errores HTTP y timeouts
-
-Retries controlados (si aplica)
-
-Ejemplo esperado:
-
-POST /api/pagos/webpay-plus/create
-
-GET /api/pagos/webpay-plus/status/:token
-
-3️⃣ Redirección a Webpay (CRÍTICO)
-
-Explicar e implementar:
-
-Por qué NO se puede usar window.location
-
-Uso obligatorio de:
-
-<form method="POST" action="{url}">
-
-input hidden token_ws
-
-Auto-submit del formulario
-
-Limpieza del DOM tras la redirección
-
-4️⃣ Vistas de retorno
-
-Diseñar vistas claras:
-
-Pago exitoso
-
-Pago rechazado
-
-Pago cancelado
-
-Error inesperado
-
-Cada vista debe:
-
-Consultar backend para validar estado real
-
-NO confiar en parámetros del navegador
-
-Mostrar mensajes claros al usuario
-
-Permitir reintento o volver al inicio
-
-5️⃣ Arquitectura Frontend (Vue 3 sugerido)
-
-Definir estructura:
-
-services/ (API pagos)
-
-views/ (PagoInicio, PagoExito, PagoError)
-
-stores/ (Pinia, si aplica)
-
-router/ (rutas de retorno)
-
-Buenas prácticas:
-
-Separación de lógica
-
-Componentes pequeños
-
-Manejo centralizado de errores
-
-Loading states y bloqueo de botones
-
-6️⃣ Seguridad (Frontend)
-
-El agente debe dejar explícito:
-
-Qué NO debe hacer el frontend
-
-Por qué nunca debe:
-
-Guardar tokens en localStorage
-
-Persistir estados de pago sin backend
-
-Exponer llaves o headers Transbank
-
-Cómo evitar doble click / doble pago
-
-7️⃣ Implementación técnica
-
-Entregar:
-
-Código Vue 3 (Composition API)
-
-Servicio JS/TS para pagos
-
-Ejemplo de auto-submit form
-
-Manejo de estados visuales (loading, disabled)
-
-Manejo de rutas protegidas post-pago
-
-8️⃣ Entregables esperados
-
-El agente debe entregar:
-
-Diagrama del flujo frontend
-
-Documentación técnica de integración frontend
-
-Ejemplos de código listos para producción
-
-Checklist de pruebas:
-
-Pago exitoso
-
-Pago rechazado
-
-Cancelación usuario
-
-Refresh / back browser
-
-Errores comunes y mitigaciones
-
-🛑 Restricciones
-
-No usar librerías externas para el pago (solo redirección estándar)
-
-No implementar lógica de negocio de pagos en frontend
-
-No asumir acceso directo a Transbank desde frontend
-
-Cumplir estrictamente el flujo oficial de Webpay Plus
-
-📌 Contexto adicional
-
-SPA moderna (Vue / Vite)
-
-Backend propio
-
-Pasarela Transbank Webpay Plus
-
-Uso en pagos de eventos, suscripciones y servicios deportivos
-
-Si quieres, en el próximo paso puedo:
-
-Unificar este prompt con el backend en un solo requerimiento maestro
-
-Convertir esto en una historia de usuario Jira
-
-Adaptarlo a Nuxt 3
-
-Bajar esto a una checklist de implementación paso a paso
-
+Actúa como Frontend Engineer senior 
 Usa el stack: Vue 3, Vite y Axios.
 Usa estilos oscuros/modernos acorde al diseño actual.
 crea o actulaiza las clases de utilidad de style.css
+obligatorio antes usa 
+nvm use 22
+Necesito que modifiques únicamente el FRONTEND para ajustar la lógica de precios y la UI de suscripciones.
+
+REQUERIMIENTO
+1) Planes y precios
+- Mantener el precio base mensual actual del plan (precio_mensual).
+- Agregar/actualizar 2 opciones de compra:
+  A) Plan 12 meses:
+     - total_bruto = precio_mensual * 12
+     - descuento = 15% sobre total_bruto
+     - total_final = total_bruto - (total_bruto * 0.15)
+     - mostrar: “Ahorras X” y “15% OFF”
+  B) Plan 6 meses:
+     - total_bruto = precio_mensual * 6
+     - descuento = 5% sobre total_bruto
+     - total_final = total_bruto - (total_bruto * 0.05)
+     - mostrar: “Ahorras X” y “5% OFF”
+- Mantener también la opción mensual (sin descuento) si ya existe.
+
+2) Fechas del plan (inicio y término)
+- Al seleccionar un plan, calcular:
+  - fecha_inicio = fecha actual (local del usuario)
+  - fecha_termino:
+    - mensual: +1 mes
+    - 6 meses: +6 meses
+    - 12 meses: +12 meses
+- Reglas importantes:
+  - Usar una función robusta para sumar meses evitando fechas inválidas (ej: 31 -> último día del mes).
+  - Mostrar fechas en formato legible para Chile: dd-mm-aaaa.
+  - La fecha de término debe ser inclusiva/exclusiva según criterio consistente:
+    - sugerencia: término = misma fecha del mes futuro (si no existe, último día del mes), y mostrar “Válido hasta: <fecha_termino>”.
+  - No usar librerías externas (dayjs/moment) salvo que el proyecto ya las tenga instaladas; preferir Date nativo y utilidades propias.
+
+3) UI/UX (obligatorio)
+- Actualizar la vista de suscripciones para que el usuario pueda elegir:
+  - Mensual
+  - 6 meses (5% OFF)
+  - 12 meses (15% OFF)
+- Mostrar en cada opción:
+  - Precio mensual base
+  - Total bruto (precio_mensual * meses)
+  - Descuento en monto (ahorro)
+  - Total final (lo que pagará)
+  - Fecha de inicio (hoy) y fecha de término estimada
+- Agregar indicadores visuales:
+  - “Recomendado” en 12 meses (si aplica)
+  - badge de descuento (5% / 15%)
+- Bloquear el botón “Continuar/Pagar” hasta que exista una opción seleccionada (si hoy no se selecciona por defecto).
+
+4) Datos y compatibilidad
+- No modificar backend.
+- Asumir que el frontend hoy obtiene el precio mensual de cada suscripción desde:
+  - una prop, store (Pinia) o respuesta API ya existente.
+- Si el precio viene como string o número, normalizar.
+- Formatear moneda CLP con separador de miles (ej: $ 12.990) usando Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP' }).
+- Redondeo:
+  - total_final debe quedar en entero CLP (sin decimales).
+  - definir regla: Math.round o Math.floor, pero ser consistente y documentarlo en comentarios.
+
+5) Entregables
+- Indicar exactamente qué archivos del frontend modificarás.
+- Entregar el código final (componentes + utilidades) listo para copiar/pegar:
+  - función calculatePlanPricing(precioMensual, meses, descuentoPct)
+  - función addMonthsSafe(date, months)
+  - UI actualizada con ejemplo de render de opciones
+- Incluir ejemplos con números para validar:
+  - precio_mensual = 10.000
+    - 12 meses: bruto 120.000, 15% = 18.000, final 102.000
+    - 6 meses: bruto 60.000, 5% = 3.000, final 57.000
+
+Restricciones
+- SOLO FRONTEND.
+- No inventar endpoints nuevos.
+- No romper el flujo actual de “suscribirse/pagar”; solo adaptar la selección y los totales mostrados/enviados si ya se envía algún monto o planId.
+
+Objetivo
+Que el usuario vea claramente el precio final con descuento según duración, y que quede visible el período del plan (inicio y término) antes de pagar.
+
+
