@@ -163,7 +163,6 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Confirmar Cambio de Plan</h3>
-                {{ selectedPlan }}
 
                 <button @click="showModal = false" class="close-btn">&times;</button>
             </div>
@@ -406,7 +405,6 @@ const initiatePayment = async () => {
 
     // Determine period and calculation
     // Use the current selected billing cycle
-    alert("billingCycle.value",billingCycle.value)
     const currentCycleKey = billingCycle.value || 'mensual';
     
     // Use totalPrice from the plan object as requested
@@ -416,7 +414,6 @@ const initiatePayment = async () => {
         : calculatePlanTotal(planToPay, currentCycleKey);
     
     console.log(`Iniciando pago: Ciclo=${currentCycleKey}, Total=${finalBilledAmount}`);
-    alert(`Confirmar pago: Ciclo=${currentCycleKey}, Total=${finalBilledAmount}`);
     // Get User ID
     let userId = authStore.user?.id || authStore.user?.sub || authStore.user?.username;
     if (!userId) {
@@ -436,6 +433,9 @@ const initiatePayment = async () => {
         billing_period: currentCycleKey,
         return_url: window.location.origin + '/payment/result?clubId=' + clubId.value
     };
+    
+    // Guardar ciclo de facturación pendiente para procesar en el retorno
+    localStorage.setItem('pendingBillingCycle', currentCycleKey);
 
     if (!paymentData.plan_id || !paymentData.amount || !paymentData.plan_codigo || !paymentData.user_id) {
         console.error('Payment Data Error:', paymentData);
@@ -445,6 +445,15 @@ const initiatePayment = async () => {
 
     try {
         isRedirecting.value = true;
+
+        // Crear solicitud de cambio/suscripción antes del pago
+        await membershipAPI.solicitarCambio(clubId.value, {
+            plan_id: planToPay.id,
+            plan_codigo: planToPay.codigo,
+            billing_period: currentCycleKey,
+            user_id: userId
+        });
+
         const response = await paymentAPI.initiatePayment(clubId.value, paymentData);
         const { url, token } = response.data;
         

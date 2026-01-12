@@ -98,6 +98,12 @@ const routes = [
         meta: { requiresAuth: true },
     },
     {
+        path: '/pagos/resultado',
+        name: 'PaymentResultLegacy',
+        component: () => import('../views/PaymentResult.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
         path: '/profile',
         name: 'Profile',
         component: Profile,
@@ -140,7 +146,7 @@ router.beforeEach((to, from, next) => {
         const permissions = authStore.permissions.value || [];
         
         // Rutas que siempre estn permitidas si ests logueado
-        const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/payment/result', '/error'];
+        const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/payment/result', '/pagos/resultado', '/error'];
         
         // Comprobar si la ruta actual coincide con alguna permitida (o es subruta)
         const isAllowedExactOrSub = alwaysAllowed.some(path => to.path === path || to.path.startsWith(path + '/')) ||

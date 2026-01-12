@@ -53,10 +53,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { paymentAPI } from '../api';
+import { paymentAPI, membershipAPI } from '../api';
+import { useAuthStore } from '../stores/auth';
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 
 const status = ref('loading'); // loading, success, error
 const details = ref(null);
@@ -94,8 +96,9 @@ const retryPayment = () => {
 
 onMounted(async () => {
   // 1. Caso de Éxito / Rechazo (Flujo normal)
-  const token = route.query.token_ws; 
+  const token = route.query.token_ws || route.query.token; 
   const clubId = route.query.clubId;
+  const statusParam = route.query.status;
   
   // 2. Caso de Aborto (Usuario anula en formulario Webpay)
   const tbkToken = route.query.TBK_TOKEN; 
@@ -103,9 +106,49 @@ onMounted(async () => {
   // 3. Caso de Timeout (TBK_ID_SESION sin token)
   const tbkIdSesion = route.query.TBK_ID_SESION;
 
-  console.log('Payment Return Params:', route.query);
+  console.log('Payment Return Params:', route);
 
-  if (token) {
+  // Normalización agresiva de parámetros
+  const rawToken = route.query.token_ws || route.query.token || '';
+  const tokenStr = Array.isArray(rawToken) ? rawToken[0] : String(rawToken);
+  // Manejar 'no-token', 'null', 'undefined' como inválidos
+  const cleanToken = (tokenStr === 'no-token' || tokenStr === 'null' || tokenStr === 'undefined') ? '' : tokenStr.trim();
+  
+
+
+  console.log('DEBUG PAYMENT VALIDATION:', { 
+      rawToken, 
+      cleanToken, 
+      statusParam, 
+      query: route.query 
+  });
+
+  // 1. Verificación inmediata de errores explícitos
+  if (statusParam === 'error') {
+      console.warn('Estado de error detectado en URL. Abortando verificación.');
+      status.value = 'error';
+      errorMessage.value = 'El pago no pudo ser procesado o fue cancelado.';
+      return;
+  }
+
+  // 2. Verificación de token inválido
+  if (!cleanToken) {
+    console.warn('Token inválido, vacío o "no-token". Abortando verificación.');
+    if (tbkToken) {
+        status.value = 'error';
+        errorMessage.value = 'La transacción fue anulada por el usuario.';
+    } else if (tbkIdSesion) {
+        status.value = 'error';
+        errorMessage.value = 'La sesión de pago ha expirado o fue cancelada.';
+    } else {
+        status.value = 'error';
+        errorMessage.value = 'Información de pago no válida o incompleta.';
+    }
+    return;
+  }
+
+  // 3. Si pasamos las validaciones, procedemos con el token limpio
+  if (cleanToken) {
     if (!clubId) {
         status.value = 'error';
         errorMessage.value = 'Error de configuración: Falta el ID del club en el retorno del pago.';
@@ -118,9 +161,21 @@ onMounted(async () => {
           await authStore.fetchUserProfile();
       }
 
-      // Confirmar transacción con backend
-      // El backend debe llamar a commit() en Transbank SDK
-      const response = await paymentAPI.getTransactionStatus(clubId, token);
+      // 1. Verificar el estado usando el endpoint de suscripción en lugar del endpoint de retorno directo
+      // Esto evita el problema de redirección (302) del endpoint /pagos/webpay-plus/return
+      // y nos permite obtener el estado real de la transacción que ya debió ser confirmada
+      // por el flujo automático de Transbank o por una llamada previa.
+      
+      console.log('Verificando estado de transacción (bypass redirect)...');
+      
+      // Usamos getTransactionStatus que llama a /suscripcion/activar
+      // Este endpoint está diseñado para devolver JSON y activar la suscripción si es válido
+      const response = await paymentAPI.getTransactionStatus(clubId, cleanToken);
+      
+      console.log('--- RAW TRANSBANK RESPONSE ---');
+      console.log(JSON.stringify(response.data, null, 2));
+      console.log('------------------------------');
+
       console.log('Transaction Status:', response.data);
       
       const { status: txStatus, response_code } = response.data;
@@ -141,14 +196,27 @@ onMounted(async () => {
           hasSuccessMessage) {
           
         status.value = 'success';
-        details.value = response.data;
+        
+        // Extraer detalles de la transacción de forma robusta
+        // Puede venir directo en root o dentro de 'transaction' / 'transaccion'
+        const txData = response.data.transaction || response.data.transaccion || response.data;
+        details.value = txData;
 
         // --- Lógica de Activación Post-Pago (Frontend Only Fix) ---
         // Recuperar el ciclo de facturación real seleccionado (ej. semestral)
         // ya que al backend se envió 'mensual' para evitar error de Enum.
         const pendingCycle = localStorage.getItem('pendingBillingCycle');
         
-        if (pendingCycle && authStore.user) {
+        // Obtener ID de usuario de forma robusta
+        let userId = authStore.user?.id || authStore.user?.sub || authStore.user?.username;
+        if (!userId) {
+             try {
+                 const storedUser = JSON.parse(localStorage.getItem('user'));
+                 if (storedUser) userId = storedUser.id || storedUser.sub || storedUser.username;
+             } catch (e) {}
+        }
+
+        if (pendingCycle && userId) {
             console.log(`Procesando activación para ciclo pendiente: ${pendingCycle}`);
             
             const now = new Date();
@@ -164,7 +232,7 @@ onMounted(async () => {
                 const activationResponse = await membershipAPI.activarSuscripcion(clubId, {
                     fecha_fin: fechaFin.toISOString(),
                     motivo: `Activación automática Webpay (${pendingCycle})`,
-                    user_id: authStore.user.id
+                    user_id: userId
                 });
                 console.log('Suscripción activada con fecha correcta:', activationResponse);
                 // Actualizar detalles con la respuesta de activación si es necesario
@@ -173,11 +241,14 @@ onMounted(async () => {
                 }
             } catch (actError) {
                 console.error('Error activando suscripción con fecha personalizada:', actError);
-                // No fallamos la vista de éxito porque el pago sí pasó, pero logueamos el error.
-                // Podríamos mostrar una advertencia, pero mejor dejar que el admin lo resuelva si falla.
+                // Si falla la activación manual, mostrar advertencia pero mantener éxito del pago
+                errorMessage.value = 'Pago exitoso, pero hubo un error al activar la suscripción. Por favor contacta a soporte.';
+                // No cambiamos status a error para no asustar al usuario sobre su dinero, pero avisamos.
             } finally {
                 localStorage.removeItem('pendingBillingCycle');
             }
+        } else {
+             console.warn('No se pudo activar suscripción: Falta pendingCycle o userId', { pendingCycle, userId });
         }
         // -----------------------------------------------------------
 
@@ -191,18 +262,6 @@ onMounted(async () => {
       status.value = 'error';
       errorMessage.value = error.response?.data?.message || 'No se pudo verificar el estado del pago.';
     }
-  } else if (tbkToken) {
-    // Usuario canceló explícitamente
-    status.value = 'error';
-    errorMessage.value = 'La transacción fue anulada por el usuario.';
-  } else if (tbkIdSesion && !token) {
-    // Timeout o error de sesión
-    status.value = 'error';
-    errorMessage.value = 'La sesión de pago ha expirado o fue cancelada.';
-  } else {
-    // Acceso directo sin parámetros
-    status.value = 'error';
-    errorMessage.value = 'Información de pago no válida.';
   }
 });
 </script>
