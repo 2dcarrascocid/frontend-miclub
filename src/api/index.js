@@ -83,6 +83,8 @@ export const authAPI = {
     getProfile: () => apiClient.get('/auth/profile'),
     updateProfile: (data) => apiClient.put('/auth/profile', data),
     verifyAccount: (token) => apiClient.get(`/auth/verify?token=${token}`),
+    forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
+    resetPassword: (token, password) => apiClient.post('/auth/reset-password', { token, password }),
 };
 
 // ==================== CLUBS API ====================

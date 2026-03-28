@@ -4,55 +4,44 @@
       <div class="auth-card">
         <div class="auth-header">
           <div class="logo-large">
-            <span class="logo-icon">⚽</span>
+            <span class="logo-icon">🔑</span>
           </div>
-          <h1>Bienvenido</h1>
-          <p>Inicia sesión en Fairplay Club</p>
+          <h1>Recuperar contraseña</h1>
+          <p>Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.</p>
         </div>
 
-        <form @submit.prevent="handleLogin" class="auth-form">
-          <div class="form-group">
-            <label for="email" class="form-label">Email</label>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              class="form-input"
-              placeholder="tu@email.com"
-              required
-              :disabled="loading"
-            />
-          </div>
+        <template v-if="!sent">
+          <form @submit.prevent="handleSubmit" class="auth-form">
+            <div class="form-group">
+              <label for="email" class="form-label">Email</label>
+              <input
+                id="email"
+                v-model="email"
+                type="email"
+                class="form-input"
+                placeholder="tu@email.com"
+                required
+                :disabled="loading"
+              />
+            </div>
 
-          <div class="form-group">
-            <label for="password" class="form-label">Contraseña</label>
-            <input
-              id="password"
-              v-model="formData.password"
-              type="password"
-              class="form-input"
-              placeholder="••••••••"
-              required
-              :disabled="loading"
-            />
-          </div>
+            <div v-if="error" class="error-message">{{ error }}</div>
 
-          <div v-if="error" class="error-message">
-            {{ error }}
-          </div>
+            <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
+              <span v-if="loading" class="spinner"></span>
+              <span v-else>Enviar enlace</span>
+            </button>
+          </form>
+        </template>
 
-          <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
-            <span v-if="loading" class="spinner"></span>
-            <span v-else>Iniciar Sesión</span>
-          </button>
-        </form>
+        <div v-else class="success-box">
+          <div class="success-icon">✅</div>
+          <p>Revisa tu bandeja de entrada. Si el correo está registrado, recibirás un enlace válido por <strong>1 hora</strong>.</p>
+        </div>
 
         <div class="auth-footer">
           <p>
-            <router-link to="/forgot-password" class="link">¿Olvidaste tu contraseña?</router-link>
-          </p>
-          <p>¿No tienes una cuenta?
-            <router-link to="/register" class="link">Regístrate</router-link>
+            <router-link to="/login" class="link">Volver al inicio de sesión</router-link>
           </p>
         </div>
       </div>
@@ -68,29 +57,22 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '../stores/auth';
+import { authAPI } from '../api/index.js';
 
-const router = useRouter();
-const authStore = useAuthStore();
-
-const formData = ref({
-  email: '',
-  password: '',
-});
-
+const email = ref('');
 const loading = ref(false);
 const error = ref('');
+const sent = ref(false);
 
-const handleLogin = async () => {
+const handleSubmit = async () => {
   loading.value = true;
   error.value = '';
 
   try {
-    await authStore.login(formData.value);
-    router.push('/dashboard');
+    await authAPI.forgotPassword(email.value);
+    sent.value = true;
   } catch (err) {
-    error.value = err.response?.data?.message || 'Error al iniciar sesión';
+    error.value = err.response?.data?.message || 'Error al enviar el correo. Intenta nuevamente.';
   } finally {
     loading.value = false;
   }
@@ -140,16 +122,14 @@ const handleLogin = async () => {
   border-radius: var(--radius-xl);
   margin-bottom: var(--spacing-lg);
   box-shadow: var(--shadow-glow);
-  animation: pulse 2s ease-in-out infinite;
 }
 
 .logo-icon {
-  font-size: 3rem;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  font-size: 2.5rem;
 }
 
 .auth-header h1 {
-  font-size: 2rem;
+  font-size: 1.75rem;
   margin-bottom: var(--spacing-sm);
   background: var(--primary-gradient);
   -webkit-background-clip: text;
@@ -159,7 +139,7 @@ const handleLogin = async () => {
 
 .auth-header p {
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .auth-form {
@@ -182,10 +162,24 @@ const handleLogin = async () => {
   animation: shake 0.3s ease-in-out;
 }
 
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-10px); }
-  75% { transform: translateX(10px); }
+.success-box {
+  text-align: center;
+  padding: var(--spacing-xl);
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.success-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--spacing-md);
+}
+
+.success-box p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 .auth-footer {
@@ -229,50 +223,24 @@ const handleLogin = async () => {
   animation: float 20s ease-in-out infinite;
 }
 
-.circle-1 {
-  width: 400px;
-  height: 400px;
-  top: -200px;
-  right: -200px;
-  animation-delay: 0s;
-}
-
-.circle-2 {
-  width: 300px;
-  height: 300px;
-  bottom: -150px;
-  left: -150px;
-  animation-delay: 5s;
-}
-
-.circle-3 {
-  width: 200px;
-  height: 200px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-delay: 10s;
-}
+.circle-1 { width: 400px; height: 400px; top: -200px; right: -200px; animation-delay: 0s; }
+.circle-2 { width: 300px; height: 300px; bottom: -150px; left: -150px; animation-delay: 5s; }
+.circle-3 { width: 200px; height: 200px; top: 50%; left: 50%; transform: translate(-50%, -50%); animation-delay: 10s; }
 
 @keyframes float {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
 }
 
 @media (max-width: 768px) {
-  .auth-card {
-    padding: var(--spacing-xl);
-  }
-
-  .auth-header h1 {
-    font-size: 1.75rem;
-  }
+  .auth-card { padding: var(--spacing-xl); }
+  .auth-header h1 { font-size: 1.5rem; }
 }
 </style>

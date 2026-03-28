@@ -38,6 +38,18 @@ const routes = [
         meta: { requiresAuth: false, hideForAuth: true },
     },
     {
+        path: '/forgot-password',
+        name: 'ForgotPassword',
+        component: () => import('../views/ForgotPassword.vue'),
+        meta: { requiresAuth: false, hideForAuth: true },
+    },
+    {
+        path: '/reset-password',
+        name: 'ResetPassword',
+        component: () => import('../views/ResetPassword.vue'),
+        meta: { requiresAuth: false, hideForAuth: false },
+    },
+    {
         path: '/dashboard',
         name: 'Dashboard',
         component: Dashboard,
@@ -129,39 +141,16 @@ const router = createRouter({
     routes,
 });
 
-// Navigation guards
+// Navigation guard — usuario autenticado tiene acceso a todos los módulos
 router.beforeEach((to, from, next) => {
     const authStore = useAuthStore();
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
     const hideForAuth = to.matched.some(record => record.meta.hideForAuth);
 
     if (requiresAuth && !authStore.isAuthenticated.value) {
-        // Ruta requiere autenticaci�n pero el usuario no est� autenticado
         next('/login');
     } else if (hideForAuth && authStore.isAuthenticated.value) {
-        // Ruta es solo para no autenticados pero el usuario est� autenticado
         next('/dashboard');
-    } else if (requiresAuth && authStore.isAuthenticated.value) {
-        // Validar permisos din�micos
-        const permissions = authStore.permissions.value || [];
-        
-        // Rutas que siempre estn permitidas si ests logueado
-        const alwaysAllowed = ['/dashboard', '/profile', '/membership', '/payment/result', '/pagos/resultado', '/error'];
-        
-        // Comprobar si la ruta actual coincide con alguna permitida (o es subruta)
-        const isAllowedExactOrSub = alwaysAllowed.some(path => to.path === path || to.path.startsWith(path + '/')) ||
-                                    permissions.some(p => to.path === p.ruta || to.path.startsWith(p.ruta + '/'));
-        
-        if (isAllowedExactOrSub) {
-            next();
-        } else {
-            console.warn(`Acceso denegado a ${to.path}. Redirigiendo a Dashboard.`);
-            if (to.path !== '/dashboard') {
-                next('/dashboard');
-            } else {
-                 next('/error');
-            }
-        }
     } else {
         next();
     }

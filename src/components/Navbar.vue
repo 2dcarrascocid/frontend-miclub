@@ -88,10 +88,13 @@ const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value;
 };
 
-// Dynamic Menu Items
-const menuItems = computed(() => {
-    return authStore.permissions.value || [];
-});
+const menuItems = [
+  { nombre: 'Dashboard',  ruta: '/dashboard', icono: '📊' },
+  { nombre: 'Jugadores',  ruta: '/players',   icono: '👥' },
+  { nombre: 'Eventos',    ruta: '/events',    icono: '📅' },
+  { nombre: 'Finanzas',   ruta: '/finance',   icono: '💰' },
+  { nombre: 'Clubes',     ruta: '/clubs',     icono: '🏆' },
+];
 
 // Close menu when clicking outside (optional enhancement)
 const closeUserMenu = () => {
