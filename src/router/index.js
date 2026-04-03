@@ -122,6 +122,12 @@ const routes = [
         meta: { requiresAuth: true },
     },
     {
+        path: '/invitacion/:token',
+        name: 'AcceptInvitation',
+        component: () => import('../views/AcceptInvitation.vue'),
+        meta: { requiresAuth: false },
+    },
+    {
         path: '/error',
         name: 'Error',
         component: ErrorView,

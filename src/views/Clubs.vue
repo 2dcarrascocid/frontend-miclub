@@ -4,8 +4,8 @@
       <div class="page-header">
         <div>
           <h2 class="inline">🏆</h2>
-          <h1 class="inline">Mis Clubes</h1>
-          <p>Administra tus clubes deportivos</p>
+          <h1 class="inline">Mi Club</h1>
+          <p>Administra tu club deportivo</p>
         </div>
         <button v-if="clubs.length === 0" class="btn btn-primary" @click="openCreateModal">
           ➕ Nuevo Club
@@ -15,64 +15,118 @@
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <p>Cargando clubes...</p>
+        <p>Cargando tu club...</p>
       </div>
 
-      <!-- Empty State -->
+      <!-- Empty State — solo aparece si realmente no tiene clubs ni invitaciones -->
       <div v-else-if="clubs.length === 0" class="empty-state">
         <span class="empty-icon">🏆</span>
         <h3>¡Bienvenido! Crea tu primer club</h3>
         <p class="mb-4">Configura los datos básicos para comenzar a gestionar tu equipo.</p>
-        
         <div class="empty-state-form-container">
-          <ClubForm 
-            :show-cancel="false" 
-            @success="handleSuccess"
-          />
+          <ClubForm :show-cancel="false" @success="handleSuccess" />
         </div>
       </div>
 
-      <!-- Clubs Grid -->
-      <div v-else class="clubs-grid">
+      <!-- Club Card + Usuarios -->
+      <div v-else class="club-card-wrapper">
         <div v-for="club in clubs" :key="club.id" class="card club-card">
-          <div class="card-header flex justify-between items-center">
-            <div class="club-icon">
-              {{ getClubIcon(club) }}
+          <div class="club-card-inner">
+            <!-- Columna izquierda: icono + info -->
+            <div class="club-main">
+              <div class="club-card-top">
+                <div class="club-icon">{{ getClubIcon(club) }}</div>
+                <div>
+                  <h3 class="card-title">{{ club.nombre }}</h3>
+                  <p class="description">{{ club.descripcion || 'Sin descripción disponible' }}</p>
+                </div>
+              </div>
+
+              <div class="club-meta">
+                <div class="meta-item">
+                  <span class="label">Deporte:</span>
+                  <span class="value">{{ formatSport(club.deporte) }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="label">Creado:</span>
+                  <span class="value">{{ formatDate(club.created_at) }}</span>
+                </div>
+              </div>
             </div>
-            <div class="club-actions">
-              <button class="btn-icon" @click="editClub(club)" title="Editar">✏️</button>
-              <button class="btn-icon delete" @click="deleteClub(club.id)" title="Eliminar">🗑️</button>
+
+            <!-- Columna derecha: acciones -->
+            <div class="club-side">
+              <div v-if="club.es_propietario" class="club-actions">
+                <button class="btn-icon" @click="editClub(club)" title="Editar">✏️</button>
+                <button class="btn-icon delete" @click="deleteClub(club.id)" title="Eliminar">🗑️</button>
+              </div>
+              <div class="card-footer">
+                <button class="btn btn-outline btn-sm" @click="goToClubDetail(club)">Ver Detalles</button>
+                <router-link :to="`/players?club=${club.id}`" class="btn btn-outline btn-sm">Jugadores</router-link>
+                <router-link :to="`/finance?club=${club.id}`" class="btn btn-outline btn-sm">Finanzas</router-link>
+              </div>
             </div>
           </div>
-          
-          <div class="card-body">
-            <h3 class="card-title">{{ club.nombre }}</h3>
-            <p class="description">{{ club.descripcion || 'Sin descripción disponible' }}</p>
-            
-            <div class="club-meta mt-3">
-              <div class="meta-item">
-                <span class="label">Deporte:</span>
-                <span class="value">{{ formatSport(club.deporte) }}</span>
+        </div>
+
+        <!-- Sección Usuarios del Club -->
+        <div class="users-section">
+          <div class="users-section-header">
+            <h3>Usuarios con acceso</h3>
+            <button class="btn btn-primary btn-sm" @click="showInviteModal = true">
+              ✉️ Invitar Usuario
+            </button>
+          </div>
+
+          <div class="users-list">
+            <div v-if="invitaciones.length === 0" class="users-empty">
+              No hay usuarios invitados aún
+            </div>
+            <div v-for="inv in invitaciones" :key="inv.id" class="invite-row">
+              <div class="invite-info">
+                <span class="invite-email">{{ inv.email }}</span>
+                <span class="invite-date">{{ formatInvDate(inv.created_at) }}</span>
               </div>
-              <div class="meta-item">
-                <span class="label">Creado:</span>
-                <span class="value">{{ formatDate(club.created_at) }}</span>
+              <div class="invite-right">
+                <span class="invite-badge" :class="inv.estado">{{ inv.estado }}</span>
+                <button v-if="inv.estado === 'pendiente'" class="btn-icon" title="Copiar link" @click="copyLink(inv.link)">🔗</button>
+                <button class="btn-icon delete" title="Eliminar" @click="eliminarInvitacion(clubs[0]?.id, inv.id)">🗑️</button>
               </div>
             </div>
           </div>
 
-          <div class="card-footer">
-            <button class="btn btn-outline btn-sm" @click="goToClubDetail(club)">
-              Ver Detalles
-            </button>
-            <router-link :to="`/players?club=${club.id}`" class="btn btn-outline btn-sm">
-              Jugadores
-            </router-link>
-            <router-link :to="`/finance?club=${club.id}`" class="btn btn-outline btn-sm">
-              Finanzas
-            </router-link>
-          </div>
+          <p v-if="copyMsg" class="copy-msg">{{ copyMsg }}</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal Invitar Usuario -->
+    <div v-if="showInviteModal" class="modal-overlay" @click.self="showInviteModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Invitar Usuario</h2>
+          <button class="close-btn" @click="showInviteModal = false">×</button>
+        </div>
+        <form @submit.prevent="handleInvitar">
+          <div class="form-group">
+            <label>Correo electrónico *</label>
+            <input
+              type="email"
+              v-model="inviteEmail"
+              required
+              class="form-input"
+              placeholder="usuario@email.com"
+              autofocus
+            />
+            <span v-if="inviteError" class="invite-error">{{ inviteError }}</span>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" @click="showInviteModal = false">Cancelar</button>
+            <button type="submit" class="btn btn-primary" :disabled="inviting">
+              {{ inviting ? 'Enviando...' : 'Enviar Invitación' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -119,7 +173,7 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { getSportIcon } from '../stores/club';
-import { clubsAPI } from '../api';
+import { clubsAPI, invitacionesAPI } from '../api';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 import ClubForm from '../components/ClubForm.vue';
 import sportOptions from '../../sport-options.json';
@@ -132,6 +186,14 @@ const showCreateModal = ref(false);
 const isEditing = ref(false);
 const showConfirmModal = ref(false);
 const currentClubData = ref({});
+
+// Invitaciones
+const invitaciones = ref([]);
+const showInviteModal = ref(false);
+const inviteEmail = ref('');
+const inviting = ref(false);
+const inviteError = ref('');
+const copyMsg = ref('');
 
 const notification = reactive({
   show: false,
@@ -148,8 +210,8 @@ const showNotification = (message, type = 'success') => {
   }, 3000);
 };
 
-onMounted(() => {
-  loadClubs();
+onMounted(async () => {
+  await loadClubs();
 });
 
 const loadClubs = async () => {
@@ -167,17 +229,68 @@ const loadClubs = async () => {
     if (Array.isArray(response.data)) {
         clubs.value = response.data;
     } else if (response.data && Array.isArray(response.data.clubes)) {
-        // Fallback in case backend structure varies slightly
         clubs.value = response.data.clubes;
     } else {
         clubs.value = [];
-        console.warn('Unexpected response format:', response.data);
+    }
+    if (clubs.value.length > 0) {
+      await loadInvitaciones(clubs.value[0].id);
     }
   } catch (error) {
     console.error('Error loading clubs:', error);
   } finally {
     loading.value = false;
   }
+};
+
+const loadInvitaciones = async (clubId) => {
+  try {
+    const res = await invitacionesAPI.listar(clubId);
+    invitaciones.value = res.data || [];
+  } catch (error) {
+    console.error('Error loading invitaciones:', error);
+  }
+};
+
+const handleInvitar = async () => {
+  inviteError.value = '';
+  inviting.value = true;
+  try {
+    const clubId = clubs.value[0]?.id;
+    await invitacionesAPI.crear(clubId, inviteEmail.value);
+    inviteEmail.value = '';
+    showInviteModal.value = false;
+    await loadInvitaciones(clubId);
+  } catch (err) {
+    inviteError.value = err.response?.data?.message || 'Error al enviar la invitación';
+  } finally {
+    inviting.value = false;
+  }
+};
+
+const eliminarInvitacion = async (clubId, id) => {
+  if (!confirm('¿Eliminar esta invitación?')) return;
+  try {
+    await invitacionesAPI.revocar(clubId, id);
+    await loadInvitaciones(clubId);
+  } catch (error) {
+    console.error('Error eliminando invitación:', error);
+  }
+};
+
+const copyLink = async (link) => {
+  try {
+    await navigator.clipboard.writeText(link);
+    copyMsg.value = '¡Link copiado!';
+    setTimeout(() => { copyMsg.value = ''; }, 2500);
+  } catch {
+    copyMsg.value = link;
+  }
+};
+
+const formatInvDate = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
 const goToClubDetail = (club) => {
@@ -272,15 +385,46 @@ const formatSport = (deporte) => {
   background-clip: text;
 }
 
-.clubs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+.club-card-wrapper {
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-xl);
 }
 
 .club-card {
+  width: 100%;
+}
+
+.club-card-inner {
+  display: flex;
+  gap: var(--spacing-xl);
+  align-items: flex-start;
+}
+
+.club-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.club-card-top {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: flex-start;
+  margin-bottom: var(--spacing-md);
+}
+
+.club-side {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 .club-icon {
@@ -445,6 +589,127 @@ const formatSport = (deporte) => {
 .inline {
   display: inline-block;
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .club-card-inner {
+    flex-direction: column;
+  }
+
+  .club-side {
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .card-footer {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Usuarios del Club */
+.users-section {
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+}
+
+.users-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.users-section-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.users-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 0.75rem 0;
+}
+
+.invite-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  gap: 1rem;
+}
+
+.invite-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.invite-email {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.invite-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.invite-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.04em;
+}
+
+.invite-badge.pendiente { background: rgba(234,179,8,0.15); color: #ca8a04; }
+.invite-badge.aceptada  { background: rgba(34,197,94,0.15); color: #16a34a; }
+.invite-badge.revocada,
+.invite-badge.vencida   { background: rgba(239,68,68,0.1);  color: #dc2626; }
+
+.copy-msg {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  word-break: break-all;
+}
+
+.invite-error {
+  display: block;
+  color: var(--accent-red);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
 }
 
 @keyframes slideUp {

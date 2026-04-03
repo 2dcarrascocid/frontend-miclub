@@ -185,6 +185,15 @@ export const paymentAPI = {
     confirmPayment: (data) => apiClient.post('/pagos/webpay-plus/return', data),
 };
 
+// ==================== INVITACIONES API ====================
+export const invitacionesAPI = {
+    crear:     (clubId, email) => apiClient.post(`/clubes/${clubId}/invitaciones`, { email }),
+    listar:    (clubId)        => apiClient.get(`/clubes/${clubId}/invitaciones`),
+    revocar:   (clubId, id)    => apiClient.delete(`/clubes/${clubId}/invitaciones/${id}`),
+    verificar: (token)         => apiClient.get(`/invitaciones/${token}/verificar`),
+    aceptar:   (token)         => apiClient.post(`/invitaciones/${token}/aceptar`),
+};
+
 // ==================== MATCHES API ====================
 // Removed as per user instruction
 /*

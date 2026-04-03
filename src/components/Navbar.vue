@@ -93,7 +93,7 @@ const menuItems = [
   { nombre: 'Jugadores',  ruta: '/players',   icono: '👥' },
   { nombre: 'Eventos',    ruta: '/events',    icono: '📅' },
   { nombre: 'Finanzas',   ruta: '/finance',   icono: '💰' },
-  { nombre: 'Clubes',     ruta: '/clubs',     icono: '🏆' },
+  { nombre: 'Club',     ruta: '/clubs',     icono: '🏆' },
 ];
 
 // Close menu when clicking outside (optional enhancement)

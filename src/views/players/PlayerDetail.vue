@@ -25,16 +25,30 @@
         <div class="player-header">
           <div class="avatar-section">
             <div class="avatar-container">
-              <img v-if="player.path_foto" :src="player.path_foto" alt="Foto jugador" class="player-photo" />
+              <img v-if="player.path_foto" :src="getDetailUrl(player.path_foto)" alt="Foto jugador" class="player-photo" />
               <div v-else class="avatar-placeholder">
                 {{ getInitials(player.nombre_completo) }}
               </div>
-              
+
+              <!-- Upload Progress -->
+              <div v-if="uploadingPhoto" class="upload-overlay">
+                <div class="upload-progress-ring">{{ uploadProgress }}%</div>
+              </div>
+
               <!-- Photo Actions -->
               <div class="photo-actions" v-if="isEditing">
-                 <button class="btn-icon-small add" @click="handleAddPhoto" title="Agregar Foto">📷</button>
+                 <button class="btn-icon-small add" @click="handleAddPhoto" title="Agregar Foto" :disabled="uploadingPhoto">📷</button>
                  <button v-if="player.path_foto" class="btn-icon-small delete" @click="handleDeletePhoto" title="Eliminar Foto">❌</button>
               </div>
+
+              <!-- Hidden file input -->
+              <input
+                type="file"
+                ref="photoInput"
+                accept="image/*"
+                style="display:none"
+                @change="onPhotoSelected"
+              />
             </div>
           </div>
 
@@ -167,12 +181,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ConfirmationModal from '../../components/ConfirmationModal.vue';
-import { useAuthStore } from '../../stores/auth'; 
+import { useAuthStore } from '../../stores/auth';
 import { useClubStore } from '../../stores/club';
-import { playersAPI } from '../../api'; 
+import { playersAPI } from '../../api';
+import { useCloudinary } from '../../composables/useCloudinary.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -207,6 +222,10 @@ const errors = reactive({
 });
 
 const isEditing = ref(false);
+const uploadingPhoto = ref(false);
+const uploadProgress = ref(0);
+
+const { uploadImage, getDetailUrl } = useCloudinary();
 
 // Validation Helpers
 const validateRutChileno = (rut) => {
@@ -489,12 +508,40 @@ const confirmDelete = async () => {
     );
 };
 
-// Photo Handlers 
+// Photo Handlers
+const photoInput = ref(null);
+
 const handleAddPhoto = () => {
-    const url = prompt('Ingrese URL de la foto (o implemente subida de archivos real):', 'https://via.placeholder.com/150');
-    if (url) {
+    photoInput.value?.click();
+};
+
+const onPhotoSelected = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        showFeedback('Solo se permiten imágenes (JPG, PNG, WEBP)', 'error');
+        return;
+    }
+
+    uploadingPhoto.value = true;
+    uploadProgress.value = 0;
+
+    try {
+        const url = await uploadImage(file, (pct) => { uploadProgress.value = pct; });
+
+        // Guardar URL en DB
+        await playersAPI.update(player.value.club_id, playerId, { path_foto: url });
+
         form.path_foto = url;
-        player.value.path_foto = url; 
+        player.value.path_foto = url;
+        showFeedback('Foto actualizada correctamente', 'success');
+    } catch (err) {
+        showFeedback(err.message || 'Error al subir la foto', 'error');
+    } finally {
+        uploadingPhoto.value = false;
+        uploadProgress.value = 0;
+        event.target.value = '';
     }
 };
 
@@ -503,9 +550,11 @@ const handleDeletePhoto = () => {
         'Eliminar Foto',
         '¿Estás seguro de eliminar la foto del jugador?',
         'danger',
-        () => {
+        async () => {
+            await playersAPI.update(player.value.club_id, playerId, { path_foto: null });
             form.path_foto = null;
             player.value.path_foto = null;
+            showFeedback('Foto eliminada', 'success');
         }
     );
 };
@@ -625,6 +674,22 @@ const getCategoryClass = (birthDate) => {
 .btn-icon-small:hover { transform: scale(1.1); }
 .btn-icon-small.add { color: var(--accent-green); }
 .btn-icon-small.delete { color: var(--accent-red); }
+.btn-icon-small:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.upload-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.upload-progress-ring {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
 
 .info-section {
   flex: 1;
