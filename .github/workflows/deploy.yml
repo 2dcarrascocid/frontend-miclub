@@ -4,7 +4,7 @@ name: Deploy frontend to S3
 on:
   push:
     branches:
-      - xxx   # reemplaza xxx por tu rama real
+      - produccion
 
 permissions:
   id-token: write
