@@ -97,10 +97,11 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 const formData = ref({
@@ -121,6 +122,12 @@ const handleRegister = async () => {
     return;
   }
 
+  // Guardar redirect de invitación para recuperarlo después del login
+  const redirect = route.query.redirect;
+  if (redirect) {
+    localStorage.setItem('pendingRedirect', redirect);
+  }
+
   loading.value = true;
   error.value = '';
   successMessage.value = '';
@@ -135,7 +142,8 @@ const handleRegister = async () => {
         // Limpiar formulario opcionalmente
         formData.value = { nombre: '', email: '', password: '', confirmPassword: '' };
     } else {
-        router.push('/dashboard');
+        const redirect = route.query.redirect;
+        router.push(redirect || '/dashboard');
     }
   } catch (err) {
     error.value = err.response?.data?.message || 'Error al registrarse';

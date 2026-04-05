@@ -33,9 +33,9 @@
             <router-link to="/profile" class="dropdown-item" @click="closeUserMenu">
               <span>👤</span> Mi Perfil
             </router-link>
-            <router-link to="/membership" class="dropdown-item" @click="closeUserMenu">
+            <!-- <router-link to="/membership" class="dropdown-item" @click="closeUserMenu">
               <span>⭐</span> Membresía
-            </router-link>
+            </router-link> -->
             <div class="dropdown-divider"></div>
             <button @click="handleLogout" class="dropdown-item logout">
                <span>🚪</span> Cerrar Sesión
@@ -93,7 +93,7 @@ const menuItems = [
   { nombre: 'Jugadores',  ruta: '/players',   icono: '👥' },
   { nombre: 'Eventos',    ruta: '/events',    icono: '📅' },
   { nombre: 'Finanzas',   ruta: '/finance',   icono: '💰' },
-  { nombre: 'Club',     ruta: '/clubs',     icono: '🏆' },
+  { nombre: 'Mi Club',     ruta: '/clubs',     icono: '🏆' },
 ];
 
 // Close menu when clicking outside (optional enhancement)

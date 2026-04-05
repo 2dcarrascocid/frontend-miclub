@@ -86,8 +86,15 @@ onMounted(async () => {
   } catch (err) {
     invalid.value = true;
     invalidMessage.value = err.response?.data?.message || 'Esta invitación no existe o ya no está disponible.';
-  } finally {
     loading.value = false;
+    return;
+  }
+
+  loading.value = false;
+
+  // Si ya está autenticado, aceptar automáticamente
+  if (authStore.isAuthenticated.value) {
+    await handleAceptar();
   }
 });
 

@@ -68,10 +68,11 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 const formData = ref({
@@ -88,7 +89,10 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(formData.value);
-    router.push('/dashboard');
+    const redirect = route.query.redirect
+      || localStorage.getItem('pendingRedirect');
+    localStorage.removeItem('pendingRedirect');
+    router.push(redirect || '/dashboard');
   } catch (err) {
     error.value = err.response?.data?.message || 'Error al iniciar sesión';
   } finally {
