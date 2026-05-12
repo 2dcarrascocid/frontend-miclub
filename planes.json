@@ -1,0 +1,74 @@
+[
+    {
+        "id": "b16be989-dc92-4c4f-811b-311f257ae203",
+        "codigo": "barrio_libre",
+        "nombre": "Barrio Libre",
+        "tier": "free",
+        "descripcion": "Para partir sin excusas",
+        "precio_mensual": 0,
+        "precio_anual": 0,
+        "activo": true,
+        "created_at": "2025-12-27T01:41:04.321073+00:00",
+        "updated_at": "2025-12-27T01:41:04.321073+00:00",
+        "limites": {
+            "id": "ad446aad-d9b7-400c-a176-caa251f251b3",
+            "plan_id": "b16be989-dc92-4c4f-811b-311f257ae203",
+            "max_club": 1,
+            "created_at": "2025-12-27T01:41:04.321073+00:00",
+            "max_admins": 1,
+            "max_jugadores": 25,
+            "permite_finanzas": false,
+            "permite_reportes": false,
+            "permite_eventos_pago": false,
+            "permite_notificaciones_email": false
+        }
+    },
+    {
+        "id": "9b0d8d04-a42b-4713-b4ca-cbba4e221643",
+        "codigo": "barrio_ordenado",
+        "nombre": "Barrio Ordenado",
+        "tier": "medio",
+        "descripcion": "Asistencia + pagos + reportes básicos",
+        "precio_mensual": 9990,
+        "precio_anual": 99900,
+        "activo": true,
+        "created_at": "2025-12-27T01:41:04.321073+00:00",
+        "updated_at": "2025-12-27T01:41:04.321073+00:00",
+        "limites": {
+            "id": "95a382f7-ca05-4307-a0ce-a08f722a5e8f",
+            "plan_id": "9b0d8d04-a42b-4713-b4ca-cbba4e221643",
+            "max_club": 5,
+            "created_at": "2025-12-27T01:41:04.321073+00:00",
+            "max_admins": 2,
+            "max_jugadores": null,
+            "permite_finanzas": false,
+            "permite_reportes": true,
+            "permite_eventos_pago": true,
+            "permite_notificaciones_email": false
+        }
+    },
+    {
+        "id": "43b5f40f-71a0-473f-8891-5ddb890c3162",
+        "codigo": "barrio_pro",
+        "nombre": "Barrio Pro",
+        "tier": "pro",
+        "descripcion": "Finanzas + notificaciones + gestión completa",
+        "precio_mensual": 17990,
+        "precio_anual": 179900,
+        "activo": true,
+        "created_at": "2025-12-27T01:41:04.321073+00:00",
+        "updated_at": "2025-12-27T01:41:04.321073+00:00",
+        "limites": {
+            "id": "813a81d3-0745-4a7b-9476-daa2afa77392",
+            "plan_id": "43b5f40f-71a0-473f-8891-5ddb890c3162",
+            "max_club": 10,
+            "created_at": "2025-12-27T01:41:04.321073+00:00",
+            "max_admins": 5,
+            "max_jugadores": null,
+            "permite_finanzas": true,
+            "permite_reportes": true,
+            "permite_eventos_pago": true,
+            "permite_notificaciones_email": true
+        }
+    }
+]

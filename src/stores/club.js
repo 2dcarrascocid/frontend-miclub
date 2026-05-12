@@ -1,6 +1,17 @@
 import { reactive, computed } from 'vue';
-import { clubsAPI } from '../api';
+import { clubsAPI, membershipAPI } from '../api';
 import { useAuthStore } from './auth';
+
+export const getSportIcon = (deporte) => {
+    const sport = (deporte || '').toString().trim().toLowerCase();
+
+    if (sport === 'basquetbol') return '🏀';
+    if (sport === 'voleibol') return '🏐';
+    if (sport === 'rugby') return '🏉';
+    if (sport === 'futbol' || sport === 'futbolito' || sport === 'babyfutbol' || sport === 'futsal') return '⚽';
+
+    return '🎽';
+};
 
 const state = reactive({
     clubs: (() => {
@@ -15,7 +26,17 @@ const state = reactive({
             return [];
         }
     })(),
-    selectedClub: JSON.parse(localStorage.getItem('selectedClub')) || null,
+    selectedClub: (() => {
+        try {
+            const stored = localStorage.getItem('selectedClub');
+            if (!stored || stored === 'undefined') return null;
+            return JSON.parse(stored);
+        } catch (e) {
+            console.error('Error parsing selectedClub', e);
+            return null;
+        }
+    })(),
+    subscription: null, // Suscripción actual del club seleccionado
     loading: false,
     error: null,
 });
@@ -23,6 +44,25 @@ const state = reactive({
 export const useClubStore = () => {
     const authStore = useAuthStore();
 
+
+    const loadSubscription = async (clubId) => {
+        if (!clubId) {
+            state.subscription = null;
+            return;
+        }
+        try {
+            const response = await membershipAPI.getSuscripcion(clubId);
+            state.subscription = response.data;
+        } catch (error) {
+            // Si es 404, asumimos plan FREE
+            if (error.response && error.response.status === 404) {
+                 state.subscription = { plan: { codigo: 'free', nombre: 'Barrio Libre' } };
+            } else {
+                 console.error('Error loading subscription:', error);
+                 state.subscription = null; 
+            }
+        }
+    };
 
     const loadClubs = async () => {
         state.loading = true;
@@ -59,12 +99,15 @@ export const useClubStore = () => {
         }
     };
 
-    const setSelectedClub = (club) => {
-        state.selectedClub = club;
+    const setSelectedClub = async (club) => {
+        console.log('🔍 Selected club set:', club);
+        state.selectedClub = club || null;
         if (club) {
             localStorage.setItem('selectedClub', JSON.stringify(club));
+            await loadSubscription(club.id);
         } else {
             localStorage.removeItem('selectedClub');
+            state.subscription = null;
         }
     };
 
@@ -76,13 +119,20 @@ export const useClubStore = () => {
         localStorage.removeItem('selectedClub');
     };
 
+    // Initial load if club is selected
+    if (state.selectedClub && !state.subscription) {
+        loadSubscription(state.selectedClub.id);
+    }
+
     return {
         state,
         clubs: computed(() => state.clubs),
         selectedClub: computed(() => state.selectedClub),
+        subscription: computed(() => state.subscription),
         loading: computed(() => state.loading),
         loadClubs,
         setSelectedClub,
         clearState,
+        loadSubscription,
     };
 };

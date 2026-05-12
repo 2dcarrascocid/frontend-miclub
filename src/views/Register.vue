@@ -7,7 +7,7 @@
             <span class="logo-icon">⚽</span>
           </div>
           <h1>Crear Cuenta</h1>
-          <p>Únete a Fair Play Chile</p>
+          <p>Únete a Fairplay Club</p>
         </div>
 
         <form @submit.prevent="handleRegister" class="auth-form">
@@ -69,7 +69,11 @@
             {{ error }}
           </div>
 
-          <button type="submit" class="btn btn-primary btn-block" :disabled="loading">
+          <div v-if="successMessage" class="success-message" style="background-color: rgba(76, 175, 80, 0.1); border: 1px solid #4CAF50; color: #4CAF50; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
+            {{ successMessage }}
+          </div>
+
+          <button v-if="!successMessage" type="submit" class="btn btn-primary btn-block" :disabled="loading">
             <span v-if="loading" class="spinner"></span>
             <span v-else>Crear Cuenta</span>
           </button>
@@ -93,10 +97,11 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 const formData = ref({
@@ -108,6 +113,7 @@ const formData = ref({
 
 const loading = ref(false);
 const error = ref('');
+const successMessage = ref('');
 
 const handleRegister = async () => {
   // Validar contraseñas
@@ -116,13 +122,29 @@ const handleRegister = async () => {
     return;
   }
 
+  // Guardar redirect de invitación para recuperarlo después del login
+  const redirect = route.query.redirect;
+  if (redirect) {
+    localStorage.setItem('pendingRedirect', redirect);
+  }
+
   loading.value = true;
   error.value = '';
+  successMessage.value = '';
 
   try {
     const { confirmPassword, ...registerData } = formData.value;
-    await authStore.register(registerData);
-    router.push('/dashboard');
+    const response = await authStore.register(registerData);
+    
+    // Si la respuesta tiene un mensaje y NO estamos autenticados (flujo verificación email)
+    if (response?.message && !authStore.state?.isAuthenticated) {
+        successMessage.value = response.message;
+        // Limpiar formulario opcionalmente
+        formData.value = { nombre: '', email: '', password: '', confirmPassword: '' };
+    } else {
+        const redirect = route.query.redirect;
+        router.push(redirect || '/dashboard');
+    }
   } catch (err) {
     error.value = err.response?.data?.message || 'Error al registrarse';
   } finally {

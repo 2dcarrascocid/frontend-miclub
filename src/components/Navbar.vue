@@ -3,27 +3,21 @@
     <div class="container navbar-content">
       <div class="navbar-brand">
         <router-link to="/dashboard" class="logo">
-          <span class="logo-icon">⚽</span>
-          <span class="logo-text">Fair Play Chile</span>
+            <span class="logo-icon">{{ clubIcon }}</span>
+          <span class="logo-text">Fair Club Chile</span>
         </router-link>
       </div>
 
       <div class="navbar-menu" :class="{ 'is-active': mobileMenuOpen }">
-        <router-link to="/dashboard" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">🏠</span>
-          Dashboard
-        </router-link>
-        <router-link to="/clubs" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">🏆</span>
-          Clubes
-        </router-link>
-        <router-link to="/players" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">👥</span>
-          Jugadores
-        </router-link>
-        <router-link to="/finance" class="nav-link" @click="closeMobileMenu">
-          <span class="nav-icon">💰</span>
-          Finanzas
+        <router-link 
+          v-for="item in menuItems"
+          :key="item.ruta"
+          :to="item.ruta" 
+          class="nav-link" 
+          @click="closeMobileMenu"
+        >
+          <span class="nav-icon">{{ item.icono }}</span>
+          {{ item.nombre }}
         </router-link>
       </div>
 
@@ -33,15 +27,18 @@
             {{ userInitials }}
           </div>
           <span class="user-name">{{ userName }}</span>
-          <span class="dropdown-arrow">▼</span>
+          <span class="dropdown-arrow">?</span>
           
           <div class="user-dropdown" v-if="userMenuOpen">
             <router-link to="/profile" class="dropdown-item" @click="closeUserMenu">
               <span>👤</span> Mi Perfil
             </router-link>
+            <!-- <router-link to="/membership" class="dropdown-item" @click="closeUserMenu">
+              <span>⭐</span> Membresía
+            </router-link> -->
             <div class="dropdown-divider"></div>
             <button @click="handleLogout" class="dropdown-item logout">
-              <span>🚪</span> Cerrar Sesión
+               <span>🚪</span> Cerrar Sesión
             </button>
           </div>
         </div>
@@ -60,39 +57,59 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useClubStore, getSportIcon } from '../stores/club';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const clubStore = useClubStore();
 
 const mobileMenuOpen = ref(false);
 const userMenuOpen = ref(false);
 
-const userName = computed(() => authStore.user.value?.nombre || 'Usuario');
+const clubIcon = computed(() => {
+  const selectedClub = clubStore.selectedClub.value;
+  return selectedClub ? getSportIcon(selectedClub.deporte) : '??';
+});
+
+const userName = computed(() => {
+  const meta = authStore.user.value?.metadata || {};
+  if (meta.nombre && meta.apellido) return `${meta.nombre} ${meta.apellido}`;
+  return meta.nombre || authStore.user.value?.email || 'Usuario';
+});
+
 const userInitials = computed(() => {
-  const name = authStore.user.value?.nombre || 'U';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const meta = authStore.user.value?.metadata || {};
+  const name = meta.nombre || 'U';
+  const surname = meta.apellido || '';
+  return (name[0] + (surname[0] || '')).toUpperCase();
 });
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value;
 };
 
-const closeMobileMenu = () => {
-  mobileMenuOpen.value = false;
-};
+const menuItems = [
+  { nombre: 'Dashboard',  ruta: '/dashboard', icono: '📊' },
+  { nombre: 'Jugadores',  ruta: '/players',   icono: '👥' },
+  { nombre: 'Eventos',    ruta: '/events',    icono: '📅' },
+  { nombre: 'Finanzas',   ruta: '/finance',   icono: '💰' },
+  { nombre: 'Mi Club',     ruta: '/clubs',     icono: '🏆' },
+];
 
-const toggleUserMenu = () => {
-  userMenuOpen.value = !userMenuOpen.value;
-};
-
+// Close menu when clicking outside (optional enhancement)
 const closeUserMenu = () => {
   userMenuOpen.value = false;
 };
-
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false;
+};
+const toggleUserMenu = () => {
+    userMenuOpen.value = !userMenuOpen.value;
+};
 const handleLogout = async () => {
-  await authStore.logout();
-  router.push('/login');
-  closeUserMenu();
+    await authStore.logout();
+    router.push('/login');
+    closeUserMenu();
 };
 </script>
 

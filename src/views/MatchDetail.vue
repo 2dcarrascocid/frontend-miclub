@@ -88,7 +88,7 @@
 
           <div class="content-sidebar">
             <div class="card">
-              <h3>Acciones</h3>
+              <h3>Detalle</h3>
               <div class="actions-list">
                 <button 
                   v-if="!hasConfirmed" 
