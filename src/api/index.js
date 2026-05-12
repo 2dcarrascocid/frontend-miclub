@@ -179,8 +179,8 @@ export const financeAPI = {
 // ==================== PAYMENT API ====================
 export const paymentAPI = {
     initiatePayment: (clubId, data) => apiClient.post(`/clubes/${clubId}/pagos/checkout`, data),
-    getTransactionStatus: (clubId, token) => apiClient.post(`/clubes/${clubId}/suscripcion/activar`, { token }),
     confirmPayment: (data) => apiClient.post('/pagos/webpay-plus/return', data),
+    getTransactionStatus: (clubId, token) => apiClient.post(`/clubes/${clubId}/suscripcion/activar`, { token }),
 };
 
 // ==================== MATCHES API ====================
