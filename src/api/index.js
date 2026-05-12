@@ -83,6 +83,8 @@ export const authAPI = {
     getProfile: () => apiClient.get('/auth/profile'),
     updateProfile: (data) => apiClient.put('/auth/profile', data),
     verifyAccount: (token) => apiClient.get(`/auth/verify?token=${token}`),
+    forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
+    resetPassword: (token, password) => apiClient.post('/auth/reset-password', { token, password }),
 };
 
 // ==================== CLUBS API ====================
@@ -181,6 +183,15 @@ export const paymentAPI = {
     initiatePayment: (clubId, data) => apiClient.post(`/clubes/${clubId}/pagos/checkout`, data),
     confirmPayment: (data) => apiClient.post('/pagos/webpay-plus/return', data),
     getTransactionStatus: (clubId, token) => apiClient.post(`/clubes/${clubId}/suscripcion/activar`, { token }),
+};
+
+// ==================== INVITACIONES API ====================
+export const invitacionesAPI = {
+    crear:     (clubId, email) => apiClient.post(`/clubes/${clubId}/invitaciones`, { email }),
+    listar:    (clubId)        => apiClient.get(`/clubes/${clubId}/invitaciones`),
+    revocar:   (clubId, id)    => apiClient.delete(`/clubes/${clubId}/invitaciones/${id}`),
+    verificar: (token)         => apiClient.get(`/invitaciones/${token}/verificar`),
+    aceptar:   (token)         => apiClient.post(`/invitaciones/${token}/aceptar`),
 };
 
 // ==================== MATCHES API ====================

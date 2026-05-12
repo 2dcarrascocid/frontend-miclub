@@ -199,7 +199,6 @@ const loadClubData = async () => {
         await clubStore.loadSubscription(clubId);
     }
 
-    // Cargar categorías
     await loadCategories();
 
   } catch (error) {
@@ -337,6 +336,83 @@ const deleteCategory = async (id) => {
   color: var(--text-muted);
   font-size: 1.1rem;
   max-width: 600px;
+}
+
+/* Invitaciones */
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.invite-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  gap: 1rem;
+}
+
+.invite-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.invite-email {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.invite-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.invite-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+}
+
+.invite-badge.pendiente  { background: rgba(234,179,8,0.15);  color: #ca8a04; }
+.invite-badge.aceptada   { background: rgba(34,197,94,0.15);  color: #16a34a; }
+.invite-badge.revocada,
+.invite-badge.vencida    { background: rgba(239,68,68,0.1);   color: #dc2626; }
+
+.empty-state.small {
+  padding: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.copy-msg {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+  word-break: break-all;
+}
+
+.error-msg {
+  color: var(--accent-red);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  display: block;
 }
 
 .section-header {

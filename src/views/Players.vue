@@ -49,6 +49,19 @@
           </button>
         </div>
 
+        <!-- Búsqueda -->
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            v-model="busqueda"
+            @input="onBusquedaInput"
+            placeholder="Buscar por nombre o RUT..."
+            class="search-input"
+          />
+          <button v-if="busqueda" class="search-clear" @click="busqueda = ''; resetAndLoad()">✕</button>
+        </div>
+
         <!-- Empty State -->
         <div v-if="players.length === 0 && !loading" class="empty-state">
           <span class="empty-icon">👥</span>
@@ -73,7 +86,7 @@
                   <th>Teléfono</th>
                   <th>Edad</th>
                   <th>Categoría</th>
-                  <th>Detalle</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,7 +95,8 @@
                   <td>
                     <div class="player-name-cell">
                       <div class="player-avatar-small">
-                        {{ getInitials(player.nombre_completo) }}
+                        <img v-if="player.path_foto" :src="getThumbnailUrl(player.path_foto)" :alt="getInitials(player.nombre_completo)" class="avatar-img" />
+                        <span v-else>{{ getInitials(player.nombre_completo) }}</span>
                       </div>
                       {{ player.nombre_completo }}
                     </div>
@@ -97,7 +111,14 @@
                   </td>
                   <td>
                     <div class="action-buttons">
+                      <button class="btn-icon" @click="editPlayer(player)" title="Editar">✏️</button>
                       <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👤</button>
+                      <button
+                        v-if="selectedCategory !== 'eliminados'"
+                        class="btn-icon btn-danger"
+                        @click="deletePlayer(player.id)"
+                        title="Eliminar jugador"
+                      >🗑️</button>
                     </div>
                   </td>
                 </tr>
@@ -111,13 +132,20 @@
               <div class="player-card-header">
                 <div class="player-name-cell">
                   <div class="player-avatar-small">
-                    {{ getInitials(player.nombre_completo) }}
+                    <img v-if="player.path_foto" :src="getThumbnailUrl(player.path_foto)" :alt="getInitials(player.nombre_completo)" class="avatar-img" />
+                    <span v-else>{{ getInitials(player.nombre_completo) }}</span>
                   </div>
                   <span class="player-name">{{ player.nombre_completo }}</span>
                 </div>
                 <div class="action-buttons">
                   <button class="btn-icon" @click="editPlayer(player)" title="Editar Jugador">✏️</button>
                   <button class="btn-icon" @click="viewPlayer(player)" title="Ver Detalle">👤</button>
+                  <button
+                    v-if="selectedCategory !== 'eliminados'"
+                    class="btn-icon btn-danger"
+                    @click="deletePlayer(player.id)"
+                    title="Eliminar jugador"
+                  >🗑️</button>
                 </div>
               </div>
               
@@ -188,6 +216,31 @@
 
     <!-- FORM -->
     <form @submit.prevent="handleSubmit">
+      <!-- Foto -->
+      <div class="form-group photo-upload-group">
+        <label>Foto del Jugador</label>
+        <div class="photo-upload-area" @click="triggerFileInput">
+          <div class="photo-preview">
+            <img v-if="photoPreview" :src="photoPreview" alt="Vista previa" class="photo-preview-img" />
+            <span v-else class="photo-placeholder">📷</span>
+          </div>
+          <div class="photo-upload-info">
+            <span v-if="uploadingPhoto" class="upload-status">Subiendo... {{ uploadProgress }}%</span>
+            <span v-else-if="photoPreview" class="upload-status change">Clic para cambiar foto</span>
+            <span v-else class="upload-status">Clic para adjuntar imagen</span>
+            <small>JPG, PNG — máx. 5MB</small>
+          </div>
+        </div>
+        <input
+          ref="fileInputRef"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden-file-input"
+          @change="onFileSelected"
+        />
+        <span v-if="errors.photo" class="error-message">{{ errors.photo }}</span>
+      </div>
+
       <!-- Nombre -->
       <div class="form-group">
         <label>Nombre Completo *</label>
@@ -202,8 +255,8 @@
         <span v-if="errors.nombre_completo" class="error-message">{{ errors.nombre_completo }}</span>
       </div>
 
-      <!-- Folio -->
-      <div class="form-group">
+      <!-- Folio — solo editable al modificar, auto-asignado al crear -->
+      <div class="form-group" v-if="isEditing">
         <label>Folio</label>
         <input
           type="number"
@@ -211,9 +264,11 @@
           placeholder="Ej: 123"
           min="1"
           class="form-input"
-          :class="{ 'input-error': errors.folio }"
         />
-        <span v-if="errors.folio" class="error-message">{{ errors.folio }}</span>
+      </div>
+      <div class="form-group" v-else>
+        <label>Folio</label>
+        <input type="text" value="Se asigna automáticamente" class="form-input" disabled />
       </div>
 
       <!-- RUT + Fecha -->
@@ -302,12 +357,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useClubStore } from '../stores/club';
 import { clubsAPI, playersAPI, categoriesAPI } from '../api';
 import BatchPlayerUpload from './../components/players/BatchPlayerUpload.vue';
+import { useCloudinary } from '../composables/useCloudinary.js';
+
+const { getThumbnailUrl, uploadImage } = useCloudinary();
 
 const route = useRoute();
 const router = useRouter();
@@ -323,6 +381,26 @@ const showBatchUpload = ref(false);
 const submitting = ref(false);
 const isEditing = ref(false);
 const editingId = ref(null);
+
+// Photo upload
+const fileInputRef = ref(null);
+const photoFile = ref(null);
+const photoPreview = ref('');
+const uploadingPhoto = ref(false);
+const uploadProgress = ref(0);
+
+// Búsqueda
+const busqueda = ref('');
+let debounceTimer = null;
+
+const onBusquedaInput = () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    resetAndLoad();
+  }, 400);
+};
+
+onUnmounted(() => clearTimeout(debounceTimer));
 
 // Categories
 const categories = ref([
@@ -353,7 +431,8 @@ const form = reactive({
   es_socio: false,
   es_jugador: false,
   usuario_id: null,
-  folio: null
+  folio: null,
+  path_foto: ''
 });
 
 const errors = reactive({
@@ -362,7 +441,8 @@ const errors = reactive({
   telefono: '',
   fecha_nacimiento: '',
   folio: '',
-  email: ''
+  email: '',
+  photo: ''
 });
 
 const validateRut = (rut) => {
@@ -446,15 +526,12 @@ const validateForm = () => {
     }
   }
 
-  // Folio: entero mayor que cero
-  // Si está vacío, decidimos si es obligatorio. El prompt dice "el campo folio debe ser numero entero mayor que cero"
-  // Asumiré que es obligatorio dado el contexto de validación estricta.
-  if (form.folio === null || form.folio === '') {
-     errors.folio = 'El folio es obligatorio';
-     isValid = false;
-  } else if (!Number.isInteger(form.folio) || form.folio <= 0) {
-     errors.folio = 'Debe ser un número entero mayor que cero';
-     isValid = false;
+  // Folio: solo validar si está editando y se ingresó un valor
+  if (isEditing.value && form.folio !== null && form.folio !== '') {
+    if (!Number.isInteger(form.folio) || form.folio <= 0) {
+      errors.folio = 'Debe ser un número entero mayor que cero';
+      isValid = false;
+    }
   }
 
   return isValid;
@@ -546,6 +623,10 @@ const loadPlayers = async () => {
       params.categoria = selectedCategory.value;
     }
 
+    if (busqueda.value.trim()) {
+      params.busqueda = busqueda.value.trim();
+    }
+
     const response = await playersAPI.getAll(selectedClubId.value, params);
     
     // Handle new response format
@@ -584,12 +665,44 @@ const prevPage = () => {
   }
 };
 
+const triggerFileInput = () => {
+  fileInputRef.value?.click();
+};
+
+const onFileSelected = (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  errors.photo = '';
+
+  if (file.size > 5 * 1024 * 1024) {
+    errors.photo = 'La imagen no puede superar 5MB';
+    return;
+  }
+
+  photoFile.value = file;
+  photoPreview.value = URL.createObjectURL(file);
+};
+
 const handleSubmit = async () => {
   if (!validateForm()) return;
 
   submitting.value = true;
 
   try {
+    // Subir foto si hay una nueva seleccionada
+    if (photoFile.value) {
+      uploadingPhoto.value = true;
+      uploadProgress.value = 0;
+      try {
+        form.path_foto = await uploadImage(photoFile.value, (pct) => {
+          uploadProgress.value = pct;
+        });
+      } finally {
+        uploadingPhoto.value = false;
+      }
+    }
+
     const playerData = { ...form };
 
     if (isEditing.value) {
@@ -599,7 +712,6 @@ const handleSubmit = async () => {
         playerData
       );
     } else {
-      console.log("Guarda datos",playerData )
       await playersAPI.create(selectedClubId.value, playerData);
     }
 
@@ -634,14 +746,19 @@ const editPlayer = (player) => {
   form.telefono = player.telefono;
   form.fecha_nacimiento = player.fecha_nacimiento;
   form.es_jugador = player.es_jugador;
+  form.path_foto = player.path_foto || '';
+  photoPreview.value = player.path_foto || '';
+  photoFile.value = null;
   showCreateModal.value = true;
 };
 
 const deletePlayer = async (id) => {
-  if (!confirm('¿Estás seguro de eliminar este jugador?')) return;
-  
+  if (!confirm('¿Eliminar jugador? Su folio quedará disponible para un nuevo jugador.')) return;
+
   try {
     await playersAPI.delete(selectedClubId.value, id);
+    currentPage.value = 1;
+    pageTokens.value = [null];
     await loadPlayers();
   } catch (error) {
     console.error('Error deleting player:', error);
@@ -675,7 +792,11 @@ const resetForm = () => {
   form.es_socio = false;
   form.es_jugador = false;
   form.usuario_id = null;
-  
+  form.path_foto = '';
+  photoFile.value = null;
+  photoPreview.value = '';
+  uploadProgress.value = 0;
+
   Object.keys(errors).forEach(key => errors[key] = '');
 };
 
@@ -846,6 +967,14 @@ const getCategoryStyle = (birthDate) => {
   font-size: 0.75rem;
   font-weight: 700;
   color: white;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.player-avatar-small .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .action-buttons {
@@ -865,6 +994,10 @@ const getCategoryStyle = (birthDate) => {
 
 .btn-icon:hover {
   background: var(--bg-tertiary);
+}
+
+.btn-icon.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 
 /* Pagination */
@@ -976,6 +1109,120 @@ const getCategoryStyle = (birthDate) => {
   margin-top: 2rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
+}
+
+/* Search Bar */
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.875rem;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.625rem 2.5rem 0.625rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-light);
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+}
+
+/* Photo Upload */
+.photo-upload-group {
+  margin-bottom: 1.25rem;
+}
+
+.photo-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.photo-upload-area:hover {
+  border-color: var(--primary-light);
+  background: var(--bg-secondary);
+}
+
+.photo-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.photo-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-placeholder {
+  font-size: 1.75rem;
+}
+
+.photo-upload-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.upload-status {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.upload-status.change {
+  color: var(--primary-light);
+}
+
+.photo-upload-info small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 /* Error Styles */
