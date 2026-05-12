@@ -5,6 +5,9 @@ on:
     branches:
       - produccion
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -47,6 +50,25 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+      - name: Validate build output
+        run: |
+          echo "Contenido generado:"
+          ls -la
+          ls -la dist
+
+          if [ ! -f "dist/index.html" ]; then
+            echo "ERROR: No existe dist/index.html"
+            exit 1
+          fi
+
+      - name: Validate AWS secrets
+        run: |
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then echo "Falta AWS_ACCESS_KEY_ID"; exit 1; fi
+          if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then echo "Falta AWS_SECRET_ACCESS_KEY"; exit 1; fi
+          if [ -z "${{ secrets.AWS_REGION }}" ]; then echo "Falta AWS_REGION"; exit 1; fi
+          if [ -z "${{ secrets.S3_BUCKET }}" ]; then echo "Falta S3_BUCKET"; exit 1; fi
+          if [ -z "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ]; then echo "Falta CLOUDFRONT_DISTRIBUTION_ID"; exit 1; fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
