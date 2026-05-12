@@ -140,6 +140,7 @@ Este proyecto es privado y confidencial.
 ## 👨‍💻 Autor
 
 Fair Play Chile Team
+# pass tester Password123!
 
 ---
 

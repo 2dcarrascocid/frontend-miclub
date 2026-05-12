@@ -229,13 +229,42 @@ export const useAuthStore = () => {
         }
     };
 
+    // Aplica una respuesta de auth (mismo formato que login/registrar por invitación)
+    const setSession = (data) => {
+        const { usuario, tokens, clubes, roles, permisos, plan } = data;
+        const accessToken  = tokens.access_token;
+        const refreshToken = tokens.refresh_token;
+        const sessionId    = tokens.session_id;
+
+        localStorage.setItem('user',        JSON.stringify(usuario));
+        localStorage.setItem('accessToken', accessToken);
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('sessionId',   sessionId);
+        if (clubes?.length)  localStorage.setItem('userClubs',       JSON.stringify(clubes));
+        if (roles?.length)   localStorage.setItem('userRoles',       JSON.stringify(roles));
+        if (permisos?.length) localStorage.setItem('userPermissions', JSON.stringify(permisos));
+        if (plan)            localStorage.setItem('userPlan',        JSON.stringify(plan));
+
+        state.user            = usuario;
+        state.accessToken     = accessToken;
+        state.refreshToken    = refreshToken;
+        state.sessionId       = sessionId;
+        state.isAuthenticated = true;
+        state.userClubs       = clubes  || [];
+        state.userRoles       = roles   || [];
+        state.permissions     = permisos || [];
+        state.userPlan        = plan    || null;
+    };
+
     return {
         ...toRefs(state),
-        state, // Expose reactive state object for direct access if needed
+        state,
         login,
         register,
         logout,
         updateUserData,
-        fetchUserProfile
+        fetchUserProfile,
+        setSession,
+        refreshProfile: fetchUserProfile,
     };
 };

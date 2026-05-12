@@ -190,8 +190,9 @@ export const invitacionesAPI = {
     crear:     (clubId, email) => apiClient.post(`/clubes/${clubId}/invitaciones`, { email }),
     listar:    (clubId)        => apiClient.get(`/clubes/${clubId}/invitaciones`),
     revocar:   (clubId, id)    => apiClient.delete(`/clubes/${clubId}/invitaciones/${id}`),
-    verificar: (token)         => apiClient.get(`/invitaciones/${token}/verificar`),
-    aceptar:   (token)         => apiClient.post(`/invitaciones/${token}/aceptar`),
+    verificar:  (token)        => apiClient.get(`/invitaciones/${token}/verificar`),
+    aceptar:    (token)        => apiClient.post(`/invitaciones/${token}/aceptar`),
+    registrar:  (token, data)  => apiClient.post(`/invitaciones/${token}/registrar`, data),
 };
 
 // ==================== MATCHES API ====================
