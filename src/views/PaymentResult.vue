@@ -168,9 +168,10 @@ onMounted(async () => {
       
       console.log('Verificando estado de transacción (bypass redirect)...');
       
-      // Usamos getTransactionStatus que llama a /suscripcion/activar
-      // Este endpoint está diseñado para devolver JSON y activar la suscripción si es válido
-      const response = await paymentAPI.getTransactionStatus(clubId, cleanToken);
+      // Usamos confirmPayment para terminar la transacción en Webpay
+      // y obtener el resultado final del pago
+      // El backend espera { token_ws: token }
+      const response = await paymentAPI.confirmPayment({ token_ws: cleanToken });
       
       console.log('--- RAW TRANSBANK RESPONSE ---');
       console.log(JSON.stringify(response.data, null, 2));
@@ -259,8 +260,12 @@ onMounted(async () => {
       }
     } catch (error) {
       console.error('Error verifying payment:', error);
+      if (error.response) {
+          console.error('Response Status:', error.response.status);
+          console.error('Response Data:', error.response.data);
+      }
       status.value = 'error';
-      errorMessage.value = error.response?.data?.message || 'No se pudo verificar el estado del pago.';
+      errorMessage.value = error.response?.data?.message || error.message || 'No se pudo verificar el estado del pago.';
     }
   }
 });
