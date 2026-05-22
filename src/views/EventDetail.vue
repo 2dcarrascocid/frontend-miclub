@@ -90,6 +90,10 @@
         <h3>Pendiente</h3>
         <p class="amount">{{ formatCurrency(event.resumen?.total_pendiente || 0) }}</p>
       </div>
+      <div class="summary-card participants">
+        <h3>Total Participantes</h3>
+        <p class="amount">{{ event.resumen?.total_participantes ?? 0 }}</p>
+      </div>
     </div>
 
     <!-- Players List -->
@@ -109,6 +113,7 @@
               <th>Nombre</th>
               <th>Estado Pago</th>
               <th>Monto</th>
+              <th>Motivo</th>
               <th>Cumplimiento</th>
               <th>Acciones</th>
             </tr>
@@ -119,28 +124,35 @@
               <td>{{ player.nombre }}</td>
               <td>
                 <span :class="['payment-badge', player.estado_pago]">
-                  {{ player.estado_pago }}
+                  {{ player.estado_pago === 'exento' ? 'Exento' : player.estado_pago }}
                 </span>
               </td>
               <td>{{ formatCurrency(player.monto) }}</td>
               <td>
-                <span v-if="player.estado_pago === 'pagado'" :class="['compliance-badge', player.estado_cumplimiento]">
-                  {{ player.estado_cumplimiento === 'a_tiempo' ? 'A Tiempo' : 'atrasado' }}
+                <span v-if="player.motivo_exencion" class="motivo-text" :title="player.motivo_exencion">
+                  {{ player.motivo_exencion }}
                 </span>
-                <span v-else>-</span>
+                <span v-else class="text-muted">—</span>
+              </td>
+              <td>
+                <span v-if="player.estado_pago === 'pagado'" :class="['compliance-badge', player.estado_cumplimiento]">
+                  {{ player.estado_cumplimiento === 'a_tiempo' ? 'A Tiempo' : 'Atrasado' }}
+                </span>
+                <span v-else-if="player.estado_pago === 'exento'" class="compliance-badge exento">Exento</span>
+                <span v-else>—</span>
               </td>
               <td class="actions-cell">
-                <button 
+                <button
                   v-if="player.estado_pago === 'pendiente'"
-                  class="btn-icon pay" 
-                  title="Registrar Pago"
+                  class="btn-icon pay"
+                  title="Registrar Pago / Ajustar"
                   @click="openPayModal(player)"
                 >
                   💰
                 </button>
-                <button 
+                <button
                   v-if="!isClosed"
-                  class="btn-icon delete" 
+                  class="btn-icon delete"
                   title="Eliminar"
                   @click="removePlayer(player.jugador_id)"
                 >
@@ -149,7 +161,7 @@
               </td>
             </tr>
             <tr v-if="!event.jugadores?.length">
-              <td colspan="6" class="text-center">No hay jugadores inscritos</td>
+              <td colspan="7" class="text-center">No hay jugadores inscritos</td>
             </tr>
           </tbody>
         </table>
@@ -212,18 +224,59 @@
     <!-- Pay Modal -->
     <div v-if="payModal.show" class="modal-overlay">
       <div class="modal-content small">
-        <h3>Registrar Pago</h3>
-        <p>Jugador: {{ payModal.player?.nombre }}</p>
-        <p>Monto: {{ formatCurrency(payModal.player?.monto) }}</p>
-        
-        <div class="form-group">
-          <label>Fecha de Pago</label>
-          <input v-model="payModal.date" type="datetime-local">
+        <h3>Gestión de Pago</h3>
+        <p class="pay-player-name">Jugador: <strong>{{ payModal.player?.nombre }}</strong></p>
+
+        <!-- Mode tabs -->
+        <div class="pay-mode-tabs">
+          <button
+            :class="['mode-tab', { active: payModal.mode === 'payment' }]"
+            @click="payModal.mode = 'payment'"
+          >
+            💰 Pago Normal
+          </button>
+          <button
+            :class="['mode-tab', { active: payModal.mode === 'adjustment' }]"
+            @click="payModal.mode = 'adjustment'"
+          >
+            ✏️ Ajuste de Monto
+          </button>
         </div>
 
-        <div class="modal-actions">
-          <button class="btn btn-text" @click="closePayModal">Cancelar</button>
-          <button class="btn btn-success" @click="confirmPayment">Registrar</button>
+        <!-- Pago Normal -->
+        <div v-if="payModal.mode === 'payment'">
+          <p class="pay-info">Monto: <strong>{{ formatCurrency(payModal.player?.monto) }}</strong></p>
+          <div class="form-group">
+            <label>Fecha de Pago</label>
+            <input v-model="payModal.date" type="datetime-local">
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-text" @click="closePayModal">Cancelar</button>
+            <button class="btn btn-success" @click="confirmPayment">Registrar Pago</button>
+          </div>
+        </div>
+
+        <!-- Ajuste de Monto -->
+        <div v-if="payModal.mode === 'adjustment'">
+          <div class="form-group">
+            <label>Nuevo Monto (0 = exento)</label>
+            <input v-model.number="payModal.editMonto" type="number" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label>Motivo</label>
+            <select v-model="payModal.motivo">
+              <option value="">Selecciona un motivo...</option>
+              <option value="ya pago en planilla anterior">Ya pagó en planilla anterior</option>
+              <option value="jugador repetido">Jugador repetido</option>
+              <option value="otro motivo">Otro motivo</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-text" @click="closePayModal">Cancelar</button>
+            <button class="btn btn-primary" :disabled="!payModal.motivo" @click="confirmAdjustment">
+              Aplicar Ajuste
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -345,7 +398,10 @@ const newPlayerNumber = ref(null);
 const payModal = ref({
   show: false,
   player: null,
-  date: ''
+  date: '',
+  mode: 'payment',
+  editMonto: 0,
+  motivo: ''
 });
 
 const clubId = computed(() => clubStore.selectedClub.value?.id);
@@ -397,10 +453,18 @@ const updateEvent = async () => {
     showNotification('error', 'Por favor corrija los errores en el formulario');
     return;
   }
-  
+
   updating.value = true;
   try {
-    await eventsAPI.update(clubId.value, event.value.id, form.value);
+    const payload = {
+      titulo: form.value.titulo,
+      descripcion: form.value.descripcion,
+      tipo_evento: form.value.tipo_evento,
+      fecha_evento: form.value.fecha_evento,
+      fecha_limite_pago: form.value.fecha_limite_pago,
+      costo_unitario: form.value.costo_unitario,
+    };
+    await eventsAPI.update(clubId.value, event.value.id, payload);
     await loadEvent();
     showNotification('success', 'Evento actualizado');
   } catch (err) {
@@ -479,27 +543,47 @@ const openPayModal = (player) => {
   payModal.value = {
     show: true,
     player,
-    date: new Date().toISOString().slice(0, 16) // Current time for input datetime-local
+    date: new Date().toISOString().slice(0, 16),
+    mode: 'payment',
+    editMonto: player.monto || 0,
+    motivo: ''
   };
 };
 
 const closePayModal = () => {
-  payModal.value = { show: false, player: null, date: '' };
+  payModal.value = { show: false, player: null, date: '', mode: 'payment', editMonto: 0, motivo: '' };
 };
 
 const confirmPayment = async () => {
   try {
     await eventsAPI.registerPayment(
-      clubId.value, 
-      event.value.id, 
-      payModal.value.player.jugador_id, 
+      clubId.value,
+      event.value.id,
+      payModal.value.player.jugador_id,
       { fecha_pago: new Date(payModal.value.date).toISOString() }
     );
     closePayModal();
-    loadEvent();
+    await loadEvent();
     showNotification('success', 'Pago registrado correctamente');
   } catch (err) {
     showNotification('error', 'Error al registrar pago');
+  }
+};
+
+const confirmAdjustment = async () => {
+  if (!payModal.value.motivo) return;
+  try {
+    await eventsAPI.adjustPayment(
+      clubId.value,
+      event.value.id,
+      payModal.value.player.jugador_id,
+      { monto: payModal.value.editMonto, motivo: payModal.value.motivo }
+    );
+    closePayModal();
+    await loadEvent();
+    showNotification('success', 'Ajuste aplicado correctamente');
+  } catch (err) {
+    showNotification('error', err.response?.data?.message || 'Error al aplicar ajuste');
   }
 };
 
@@ -534,7 +618,7 @@ onMounted(async () => {
 
 <style scoped>
 .event-detail-view {
-  padding: 2rem;
+  padding: 1.25rem 2rem;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -542,7 +626,7 @@ onMounted(async () => {
 .detail-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .back-btn {
@@ -567,10 +651,10 @@ onMounted(async () => {
 
 .info-card {
   background: var(--bg-card);
-  padding: 2rem;
+  padding: 1.25rem 1.5rem;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   border: 1px solid var(--border-color);
 }
 
@@ -578,13 +662,13 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.875rem;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
 }
 
 .full-width {
@@ -593,19 +677,20 @@ onMounted(async () => {
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   font-weight: 500;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
 input, select, textarea {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 input:focus, select:focus, textarea:focus {
@@ -622,21 +707,21 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 .form-actions {
-  margin-top: 2rem;
+  margin-top: 0.875rem;
   display: flex;
   justify-content: flex-end;
 }
 
 .summary-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .summary-card {
   background: var(--bg-card);
-  padding: 1.5rem;
+  padding: 0.875rem 1rem;
   border-radius: var(--radius-lg);
   text-align: center;
   box-shadow: var(--shadow-md);
@@ -645,16 +730,17 @@ input:disabled, select:disabled, textarea:disabled {
 
 .summary-card.income .amount { color: var(--accent-green); }
 .summary-card.pending .amount { color: var(--accent-red); }
+.summary-card.participants .amount { color: var(--primary-light); }
 
 .amount {
-  font-size: 2rem;
+  font-size: 1.4rem;
   font-weight: bold;
-  margin: 0.5rem 0 0;
+  margin: 0.25rem 0 0;
 }
 
 .players-section {
   background: var(--bg-card);
-  padding: 2rem;
+  padding: 1.25rem 1.5rem;
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
@@ -664,7 +750,7 @@ input:disabled, select:disabled, textarea:disabled {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.875rem;
 }
 
 .table-container {
@@ -678,17 +764,19 @@ table {
 
 th {
   text-align: left;
-  padding: 1rem;
+  padding: 0.5rem 0.75rem;
   color: var(--text-secondary);
   font-weight: 600;
+  font-size: 0.85rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 td {
-  padding: 1rem;
+  padding: 0.5rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
+  font-size: 0.9rem;
 }
 
 tr:last-child td {
@@ -704,12 +792,58 @@ tr:last-child td {
 }
 .payment-badge.pagado { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
 .payment-badge.pendiente { background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); }
+.payment-badge.exento { background: rgba(102, 126, 234, 0.1); color: var(--primary-light); }
 
 .compliance-badge {
   font-weight: bold;
 }
 .compliance-badge.a_tiempo { color: var(--accent-green); }
 .compliance-badge.tardio { color: var(--accent-red); }
+.compliance-badge.exento { color: var(--primary-light); }
+
+.motivo-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  max-width: 140px;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.text-muted { color: var(--text-muted); }
+
+.pay-player-name { margin-bottom: 1rem; }
+.pay-info { margin-bottom: 1rem; color: var(--text-secondary); }
+
+.pay-mode-tabs {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.mode-tab:first-child { border-right: 1px solid var(--border-color); }
+
+.mode-tab.active {
+  background: var(--primary-gradient);
+  color: white;
+}
 
 .actions-cell {
   display: flex;

@@ -111,13 +111,19 @@
                 <h3>Jugadores</h3>
                 <p>Gestiona el plantel</p>
               </router-link>
-              
+
+              <router-link to="/events" class="action-card">
+                <span class="action-icon">📅</span>
+                <h3>Eventos</h3>
+                <p>{{ stats[1].value }} abierto(s)</p>
+              </router-link>
+
               <router-link to="/finance" class="action-card">
                 <span class="action-icon">💰</span>
                 <h3>Finanzas</h3>
                 <p>Ingresos y gastos</p>
               </router-link>
-              
+
               <router-link to="/clubs" class="action-card">
                 <span class="action-icon">⚙️</span>
                 <h3>Configuración</h3>
@@ -270,6 +276,7 @@ const balance = ref(0);
 
 const stats = ref([
   { icon: '⚽', label: 'Jugadores', value: '0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+  { icon: '📅', label: 'Eventos Abiertos', value: '0', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
   { icon: '📈', label: 'Ingresos', value: '$0', gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
   { icon: '📉', label: 'Egresos', value: '$0', gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
   { icon: '💰', label: 'Balance', value: '$0', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
@@ -301,19 +308,19 @@ const loadClubStats = async () => {
   try {
     // Load Dashboard Summary (Players & Partners)
     const summaryRes = await dashboardAPI.getSummary(selectedClub.value.id);
-    const { total_jugadores_activos, total_socios_no_jugadores } = summaryRes.data;
-    
-    stats.value[0].value = (total_jugadores_activos || 0).toString();
+    const { total_jugadores_activos, total_eventos_abiertos } = summaryRes.data;
 
+    stats.value[0].value = (total_jugadores_activos || 0).toString();
+    stats.value[1].value = (total_eventos_abiertos || 0).toString();
 
     // Load Finance Summary
     const financeRes = await financeAPI.getFinancialSummary(selectedClub.value.id);
     const { ingresos, egresos, balance: balanceTotal } = financeRes.data;
-    
+
     balance.value = balanceTotal;
-    stats.value[1].value = formatCurrency(ingresos || 0);
-    stats.value[2].value = formatCurrency(egresos || 0);
-    stats.value[3].value = formatCurrency(balanceTotal || 0);
+    stats.value[2].value = formatCurrency(ingresos || 0);
+    stats.value[3].value = formatCurrency(egresos || 0);
+    stats.value[4].value = formatCurrency(balanceTotal || 0);
     
   } catch (error) {
     console.error('Error loading stats:', error);

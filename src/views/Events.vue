@@ -105,6 +105,10 @@
                   <span class="card-label">Costo:</span>
                   <span class="card-value cost">{{ formatCurrency(event.costo_unitario) }}</span>
                 </div>
+                <div class="card-row">
+                  <span class="card-label">Participantes:</span>
+                  <span class="card-value participants">{{ event.total_participantes ?? 0 }}</span>
+                </div>
               </div>
               
               <div class="card-footer">
@@ -475,6 +479,7 @@ const truncate = (text, length) => {
   margin-bottom: var(--spacing-xs);
   background: var(--primary-gradient);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -702,6 +707,11 @@ const truncate = (text, length) => {
   color: var(--primary-light);
   font-weight: 700;
   font-size: 1.1rem;
+}
+
+.card-value.participants {
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .card-footer {

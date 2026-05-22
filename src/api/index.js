@@ -144,7 +144,8 @@ export const eventsAPI = {
     addPlayer: (clubId, eventId, data) => apiClient.post(`/clubes/${clubId}/eventos/${eventId}/jugadores`, data),
     removePlayer: (clubId, eventId, playerId) => apiClient.delete(`/clubes/${clubId}/eventos/${eventId}/jugadores/${playerId}`),
     registerPayment: (clubId, eventId, playerId, data) => apiClient.post(`/clubes/${clubId}/eventos/${eventId}/jugadores/${playerId}/pagar`, data),
-    
+    adjustPayment: (clubId, eventId, playerId, data) => apiClient.put(`/clubes/${clubId}/eventos/${eventId}/jugadores/${playerId}/ajuste`, data),
+
     // Close event
     close: (clubId, eventId) => apiClient.post(`/clubes/${clubId}/eventos/${eventId}/cerrar`),
 };
